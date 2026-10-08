@@ -5,7 +5,7 @@
 # apps/chrono-web deploys separately (Vercel or its own Render static/web service).
 #
 # `rootDir: .` is required (not apps/chrono-api): the build needs the pnpm workspace so
-# `agora` (packages/agora) resolves; `--filter @agora/chrono-api` scopes the actual
+# `agora` (packages/agora) resolves; `--filter @chrono/gaming-api` scopes the actual
 # build/start/migrate to this app.
 #
 # Vars marked `sync: false` must be filled in via the Render dashboard
@@ -21,14 +21,14 @@ services:
     region: oregon
     branch: main
     rootDir: .
-    buildCommand: pnpm install --frozen-lockfile && pnpm --filter @agora/chrono-api build
+    buildCommand: pnpm install --frozen-lockfile && pnpm --filter @chrono/gaming-api build
     # Applies any pending Drizzle migrations (+ re-applies FORCE RLS) before the new
     # instance takes traffic. This is the step that was missing when
     # CustomerOAuthAccounts shipped in code but never in this app's own migration
     # history — a schema/migration drift now fails loudly here instead of 500ing on
     # a live request.
-    preDeployCommand: pnpm --filter @agora/chrono-api db:migrate
-    startCommand: pnpm --filter @agora/chrono-api start
+    preDeployCommand: pnpm --filter @chrono/gaming-api db:migrate
+    startCommand: pnpm --filter @chrono/gaming-api start
     healthCheckPath: /health
     autoDeploy: true
     envVars:

@@ -1,5 +1,5 @@
 {
-  "name": "@agora/chrono-web",
+  "name": "@chrono/gaming-web",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -13,7 +13,7 @@
     "clean": "rimraf .next .turbo"
   },
   "dependencies": {
-    "@agora/chrono-api": "workspace:*",
+    "@chrono/gaming-api": "workspace:*",
     "@sentry/nextjs": "^10.71.0",
     "agora": "workspace:*",
     "hono": "4.13.2",

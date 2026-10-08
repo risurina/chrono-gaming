@@ -30,7 +30,7 @@ import {
 } from "agora/ui";
 import { api } from "@/lib/rpc";
 import type { PaginationMeta } from "agora";
-import type { HoursConfigInput } from "@agora/chrono-api/branch";
+import type { HoursConfigInput } from "@chrono/gaming-api/branch";
 
 type BranchStatus = "active" | "disabled";
 
@@ -62,7 +62,7 @@ type Branch = {
 
 // ---------------------------------------------------------------------------
 // Structured hours editor state. `HoursConfigInput` (the day-of-week union
-// contract from `@agora/chrono-api/branch`, `hoursConfigSchema`) is the
+// contract from `@chrono/gaming-api/branch`, `hoursConfigSchema`) is the
 // on-the-wire shape; `HoursFormState` is a friendlier local shape for the
 // day-row editor below (an explicit `mode` instead of a discriminated-by-value
 // union) that converts to/from it at the form boundary.

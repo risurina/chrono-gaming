@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import type { BusinessDirectoryResult } from "@agora/chrono-api/business-lead";
+import type { BusinessDirectoryResult } from "@chrono/gaming-api/business-lead";
 import {
   Card,
   CardHeader,

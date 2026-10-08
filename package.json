@@ -7,20 +7,20 @@
     "node": ">=20"
   },
   "scripts": {
-    "dev": "pnpm --parallel --filter \"@agora/chrono-api\" --filter \"@agora/chrono-web\" dev",
+    "dev": "pnpm --parallel --filter \"@chrono/gaming-api\" --filter \"@chrono/gaming-web\" dev",
     "build": "turbo run build",
     "lint": "turbo run lint",
     "typecheck": "turbo run typecheck",
     "clean": "turbo run clean && rimraf node_modules",
     "format": "prettier --write \"**/*.{ts,tsx,js,json,md}\"",
-    "db:generate": "pnpm --filter @agora/chrono-api db:generate",
-    "db:migrate": "pnpm --filter @agora/chrono-api db:migrate",
-    "db:push": "pnpm --filter @agora/chrono-api db:push",
-    "db:studio": "pnpm --filter @agora/chrono-api db:studio",
-    "db:seed": "pnpm --filter @agora/chrono-api seed",
-    "db:app-role": "pnpm --filter @agora/chrono-api db:app-role",
-    "db:rls:proof": "pnpm --filter @agora/chrono-api rls:proof",
-    "test:e2e": "pnpm --filter @agora/chrono-api test:e2e"
+    "db:generate": "pnpm --filter @chrono/gaming-api db:generate",
+    "db:migrate": "pnpm --filter @chrono/gaming-api db:migrate",
+    "db:push": "pnpm --filter @chrono/gaming-api db:push",
+    "db:studio": "pnpm --filter @chrono/gaming-api db:studio",
+    "db:seed": "pnpm --filter @chrono/gaming-api seed",
+    "db:app-role": "pnpm --filter @chrono/gaming-api db:app-role",
+    "db:rls:proof": "pnpm --filter @chrono/gaming-api rls:proof",
+    "test:e2e": "pnpm --filter @chrono/gaming-api test:e2e"
   },
   "devDependencies": {
     "prettier": "3.9.6",

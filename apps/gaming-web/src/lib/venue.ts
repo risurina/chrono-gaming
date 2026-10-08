@@ -3,7 +3,7 @@ import { headers } from "next/headers";
 import {
   publicVenueInfoResponseSchema,
   type PublicVenueInfoResponse,
-} from "@agora/chrono-api/branch";
+} from "@chrono/gaming-api/branch";
 import { getRequestTenant } from "@/lib/tenant";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8787";

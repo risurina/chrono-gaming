@@ -5,7 +5,7 @@
 # apps/chrono-web deploys separately to Vercel (see README.md "Deploying").
 #
 # `rootDir: .` is required (not apps/chrono-api): the build needs the pnpm workspace so
-# `agora` (packages/agora/packages/agora) resolves; `--filter @agora/chrono-api` scopes
+# `agora` (packages/agora/packages/agora) resolves; `--filter @chrono/gaming-api` scopes
 # the actual build/start to this app.
 #
 # Vars marked `sync: false` must be filled in via the Render dashboard
@@ -21,12 +21,12 @@ services:
     region: oregon
     branch: main
     rootDir: .
-    buildCommand: pnpm install --frozen-lockfile && pnpm --filter @agora/chrono-api build
+    buildCommand: pnpm install --frozen-lockfile && pnpm --filter @chrono/gaming-api build
     # Applies any pending Drizzle migrations (+ re-applies FORCE RLS) before the new
     # instance takes traffic — catches schema/migration drift here instead of a live
     # request 500ing on a table that was never migrated.
-    preDeployCommand: pnpm --filter @agora/chrono-api db:migrate
-    startCommand: pnpm --filter @agora/chrono-api start
+    preDeployCommand: pnpm --filter @chrono/gaming-api db:migrate
+    startCommand: pnpm --filter @chrono/gaming-api start
     healthCheckPath: /health
     autoDeploy: true
     envVars:

@@ -1,7 +1,7 @@
 "use client";
 
 import { tenantFetch } from "agora/client";
-import type { MembershipVenueStatus } from "@agora/chrono-api/station";
+import type { MembershipVenueStatus } from "@chrono/gaming-api/station";
 
 // Global customer (platform-wide identity) auth for the browser. The
 // transport client and the session hook both live in the foundation — this

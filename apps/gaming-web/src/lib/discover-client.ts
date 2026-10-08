@@ -3,7 +3,7 @@ import type {
   BusinessDirectoryListItem,
   DiscoverBusinessesQuery,
   CreateBusinessLeadInput,
-} from "@agora/chrono-api/business-lead";
+} from "@chrono/gaming-api/business-lead";
 import type { PaginationMeta } from "agora";
 
 /**

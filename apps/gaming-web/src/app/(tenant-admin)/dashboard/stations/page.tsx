@@ -35,7 +35,7 @@ import {
 import { api } from "@/lib/rpc";
 import type { PaginationMeta } from "agora";
 import { connectChronoRealtime, onStationStatus } from "@/lib/realtime";
-import type { StationStatusEvent } from "@agora/chrono-api/realtime";
+import type { StationStatusEvent } from "@chrono/gaming-api/realtime";
 import { StationControlBoard } from "@/components/dashboard/stations/station-control-board";
 
 type StationQrStatus = {

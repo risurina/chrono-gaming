@@ -3,7 +3,7 @@ import type {
   StationStatusEvent,
   BranchSummaryEvent,
   SessionStateEvent,
-} from "@agora/chrono-api/realtime";
+} from "@chrono/gaming-api/realtime";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8787";
 

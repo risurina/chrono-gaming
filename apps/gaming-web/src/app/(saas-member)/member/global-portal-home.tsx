@@ -9,7 +9,7 @@ import {
   type MembershipVenueStatus,
 } from "@/lib/customer-client";
 import { listBusinessDirectory } from "@/lib/discover-client";
-import type { BusinessDirectoryListItem } from "@agora/chrono-api/business-lead";
+import type { BusinessDirectoryListItem } from "@chrono/gaming-api/business-lead";
 import { LoungeDirectoryCard } from "@/components/member/lounge-directory-card";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "agora/ui";
 

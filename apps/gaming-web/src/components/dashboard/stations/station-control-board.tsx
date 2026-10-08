@@ -27,8 +27,8 @@ import {
 } from "agora/ui";
 import { api } from "@/lib/rpc";
 import { connectChronoRealtime, onStationStatus, onSessionState } from "@/lib/realtime";
-import type { StationStatusEvent, SessionStateEvent } from "@agora/chrono-api/realtime";
-import type { StationBoardStation, StationBoardSession } from "@agora/chrono-api/station";
+import type { StationStatusEvent, SessionStateEvent } from "@chrono/gaming-api/realtime";
+import type { StationBoardStation, StationBoardSession } from "@chrono/gaming-api/station";
 import { computeElapsedSeconds, computeRemainingSeconds, formatDuration } from "@/lib/session-time";
 
 type Me = { userId: string; role: string; permissions: Record<string, string[]> };

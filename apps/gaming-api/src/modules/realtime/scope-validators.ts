@@ -8,7 +8,7 @@
  * Zod schemas pulled `agora/db` (and thus a `DATABASE_URL` requirement) into
  * every web-app import of the pure contracts, which broke `chrono-web`'s
  * production build (static generation for pages like `/about` that import
- * `@agora/chrono-api/station` for its schemas alone).
+ * `@chrono/gaming-api/station` for its schemas alone).
  */
 
 import { withTenant, inArray } from "agora/db";

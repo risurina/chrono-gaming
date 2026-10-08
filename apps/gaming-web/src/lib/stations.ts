@@ -3,7 +3,7 @@ import { headers } from "next/headers";
 import {
   publicStationsResponseSchema,
   type PublicStationsResponse,
-} from "@agora/chrono-api/station";
+} from "@chrono/gaming-api/station";
 import { getRequestTenant } from "@/lib/tenant";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8787";
