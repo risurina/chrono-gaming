@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Vercel installCommand entrypoint (invoked with cwd = the project's Root Directory,
-# apps/chrono-web). Vercel's GitHub App clones this repo but cannot fetch the private
+# apps/gaming-web). Vercel's GitHub App clones this repo but cannot fetch the private
 # packages/agora submodule even when the App has access to that repo, so `git submodule
 # update` gets a 403. We fetch it ourselves with a scoped PAT, then run the normal
 # workspace install from the repo root.
