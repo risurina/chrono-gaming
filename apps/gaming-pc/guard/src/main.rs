@@ -12,6 +12,7 @@ mod locker;
 mod recovery;
 #[cfg(windows)]
 mod session;
+mod session_sync;
 mod state;
 mod store;
 mod supervise;
@@ -148,11 +149,17 @@ where
         chrono_control::station_state_path(),
     ));
 
+    // Server credentials the UI hands the guard over the signed control channel;
+    // shared with the session-sync loop so the guard can ask the server the
+    // authoritative "is there an active session?" question itself.
+    let credentials = session_sync::shared_credentials();
+
     // Background enforcers share the authoritative station state.
     enforcement::spawn(station.clone(), Arc::new(locker::WorkstationLocker));
     watchdog::spawn(station.clone(), Arc::new(watchdog::SystemSupervisor::default()));
+    session_sync::spawn(station.clone(), credentials.clone());
 
-    let state = AppState::new(control_key, station);
+    let state = AppState::new(control_key, station, credentials);
     let app = control::router(state);
     // Loopback-only: the control channel must never be reachable off-host.
     let addr = SocketAddr::from((Ipv4Addr::LOCALHOST, control_port()));

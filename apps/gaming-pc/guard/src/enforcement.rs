@@ -94,8 +94,10 @@ pub fn evaluate(state: &StationState, now: i64, stale_ping_ms: i64) -> Option<Tr
         return None;
     }
 
-    // Ambiguous: UNLOCKED without a bounded session.
-    if state.active_session_id.is_none() || state.scheduled_end_at.is_none() {
+    // Ambiguous: UNLOCKED with no server-validated session at all. A session
+    // WITHOUT a scheduled end is now valid (an open-ended server session — see
+    // below); only the complete absence of a session id is ambiguous.
+    if state.active_session_id.is_none() {
         return Some(Transition {
             target: LockState::SafeLocked,
             reason: "unlocked without an active session",
@@ -112,17 +114,23 @@ pub fn evaluate(state: &StationState, now: i64, stale_ping_ms: i64) -> Option<Tr
         }
     }
 
-    // Session expiry (authoritative backstop for server-scheduled end).
-    match state.scheduled_end_at.as_deref().and_then(parse_epoch_ms) {
-        Some(end_ms) if now >= end_ms => Some(Transition {
-            target: LockState::Locked,
-            reason: "session expired",
-        }),
-        None => Some(Transition {
-            target: LockState::SafeLocked,
-            reason: "unparseable session expiry",
-        }),
-        _ => None,
+    // Session expiry (authoritative backstop for the server-scheduled end).
+    // A `None` end is an open-ended server session (Phase 3): no wall-clock
+    // expiry — it stays unlocked, relying on the next server poll + the
+    // stale-ping backstop above. A present-but-unparseable end fails closed.
+    match state.scheduled_end_at.as_deref() {
+        None => None,
+        Some(iso) => match parse_epoch_ms(iso) {
+            Some(end_ms) if now >= end_ms => Some(Transition {
+                target: LockState::Locked,
+                reason: "session expired",
+            }),
+            Some(_) => None,
+            None => Some(Transition {
+                target: LockState::SafeLocked,
+                reason: "unparseable session expiry",
+            }),
+        },
     }
 }
 
@@ -252,6 +260,24 @@ mod tests {
     fn healthy_active_session_no_transition() {
         let st = unlocked(Some("s1"), Some("2999-01-01T00:00:00Z"), Some(NOW));
         assert!(evaluate(&st, NOW, STALE_PING_MS).is_none());
+    }
+
+    #[test]
+    fn open_ended_active_session_no_transition() {
+        // Phase 3: a server session with no scheduled end (null) stays unlocked
+        // with no wall-clock expiry — relying on the next server poll + the
+        // stale-ping backstop, NOT a safe-lock.
+        let st = unlocked(Some("s1"), None, Some(NOW));
+        assert!(evaluate(&st, NOW, STALE_PING_MS).is_none());
+    }
+
+    #[test]
+    fn open_ended_session_still_safe_locks_on_stale_ping() {
+        // The open-ended allowance must not defeat the stale-ping backstop.
+        let st = unlocked(Some("s1"), None, Some(NOW - 40_000));
+        let t = evaluate(&st, NOW, STALE_PING_MS).unwrap();
+        assert_eq!(t.target, LockState::SafeLocked);
+        assert_eq!(t.reason, "ui liveness ping is stale");
     }
 
     #[test]
