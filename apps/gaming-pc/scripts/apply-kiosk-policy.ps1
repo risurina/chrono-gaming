@@ -64,6 +64,29 @@ function Dismount-UserHive($sid) {
     & reg.exe unload "HKU\$sid" | Out-Null
 }
 
+# Deny the kiosk user the ability to change/delete a policy subkey in their own
+# hive, so a standard customer cannot revert DisableTaskMgr/DisableCMD/NoRun etc.
+# Only SYSTEM/Administrators (inherited) can modify these afterwards.
+# (hardening plan #1, Phase 1b — VALIDATE on a real Windows image per Phase 5.)
+function Lock-PolicyKeyAgainstUser($regProviderPath, $userSid) {
+    try {
+        if (-not (Test-Path $regProviderPath)) { return }
+        $acl = Get-Acl -Path $regProviderPath
+        $sid = New-Object System.Security.Principal.SecurityIdentifier($userSid)
+        $rights = [System.Security.AccessControl.RegistryRights]"SetValue,CreateSubKey,Delete,ChangePermissions,TakeOwnership"
+        $deny = New-Object System.Security.AccessControl.RegistryAccessRule(
+            $sid, $rights,
+            [System.Security.AccessControl.InheritanceFlags]"ContainerInherit",
+            [System.Security.AccessControl.PropagationFlags]"None",
+            [System.Security.AccessControl.AccessControlType]"Deny"
+        )
+        $acl.AddAccessRule($deny)
+        Set-Acl -Path $regProviderPath -AclObject $acl
+    } catch {
+        Write-Warning "Could not lock policy key $regProviderPath against ${Username}: $_. Validate registry ACLs manually."
+    }
+}
+
 Write-Host "Applying Kiosk Policy for user: $Username"
 
 $sid = Get-UserSid $Username
@@ -86,13 +109,37 @@ if (-not (Test-Path $explorerPath)) { New-Item -Path $explorerPath -Force | Out-
 if (-not (Test-Path $systemPath)) { New-Item -Path $systemPath -Force | Out-Null }
 if (-not (Test-Path $winSystemPath)) { New-Item -Path $winSystemPath -Force | Out-Null }
 
-# Apply Restrictions
+# Apply Restrictions (per-user hive)
 Set-ItemProperty -Path $systemPath -Name "DisableTaskMgr" -Value 1 -Type DWord
 Set-ItemProperty -Path $winSystemPath -Name "DisableCMD" -Value 1 -Type DWord
 Set-ItemProperty -Path $explorerPath -Name "NoRun" -Value 1 -Type DWord
 Set-ItemProperty -Path $explorerPath -Name "NoWinKeys" -Value 1 -Type DWord
 Set-ItemProperty -Path $explorerPath -Name "NoClose" -Value 1 -Type DWord
 Set-ItemProperty -Path $explorerPath -Name "NoLogoff" -Value 1 -Type DWord
+
+# Lock the per-user policy subkeys so the standard customer account cannot revert
+# them (DisableTaskMgr/DisableCMD are User-Config policies with no reliable HKLM
+# equivalent, so the ACL lock is their real protection).
+Lock-PolicyKeyAgainstUser $systemPath $sid
+Lock-PolicyKeyAgainstUser $winSystemPath $sid
+Lock-PolicyKeyAgainstUser $explorerPath $sid
+
+# --- Machine-wide (HKLM) baseline: cannot be reverted by a non-admin customer ---
+# Explorer restrictions are honored machine-wide here; DisableTaskMgr/DisableCMD
+# are set too (belt-and-suspenders) but the user-hive lock above is their
+# authoritative enforcement. (hardening plan #1, Phase 1b.)
+$hklmSystem    = "HKLM:\Software\Microsoft\Windows\CurrentVersion\Policies\System"
+$hklmExplorer  = "HKLM:\Software\Microsoft\Windows\CurrentVersion\Policies\Explorer"
+$hklmWinSystem = "HKLM:\Software\Policies\Microsoft\Windows\System"
+foreach ($p in @($hklmSystem, $hklmExplorer, $hklmWinSystem)) {
+    if (-not (Test-Path $p)) { New-Item -Path $p -Force | Out-Null }
+}
+Set-ItemProperty -Path $hklmSystem    -Name "DisableTaskMgr" -Value 1 -Type DWord
+Set-ItemProperty -Path $hklmWinSystem -Name "DisableCMD"     -Value 1 -Type DWord
+Set-ItemProperty -Path $hklmExplorer  -Name "NoRun"     -Value 1 -Type DWord
+Set-ItemProperty -Path $hklmExplorer  -Name "NoWinKeys" -Value 1 -Type DWord
+Set-ItemProperty -Path $hklmExplorer  -Name "NoClose"   -Value 1 -Type DWord
+Set-ItemProperty -Path $hklmExplorer  -Name "NoLogoff"  -Value 1 -Type DWord
 
 # Shell Replacement (Optional)
 if ($ShellPath -ne "") {

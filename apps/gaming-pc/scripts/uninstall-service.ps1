@@ -39,6 +39,20 @@ if ($existing) {
     Write-Host "Service $ServiceName is not installed."
 }
 
+# --- Remove the Safe-Mode service registrations ---
+# install-service.ps1 registers the guard under SafeBoot\{Minimal,Network} so it
+# still runs after a Safe-Mode boot; strip those so uninstall fully reverts.
+# (hardening plan #1, Phase 4/5.)
+Write-Host "Removing Safe-Mode registrations for $ServiceName..."
+foreach ($safeBootKey in @(
+    "HKLM:\SYSTEM\CurrentControlSet\Control\SafeBoot\Minimal\$ServiceName",
+    "HKLM:\SYSTEM\CurrentControlSet\Control\SafeBoot\Network\$ServiceName"
+)) {
+    if (Test-Path $safeBootKey) {
+        Remove-Item -Path $safeBootKey -Recurse -Force -ErrorAction SilentlyContinue
+    }
+}
+
 # --- Revert kiosk policy for whichever user it was applied to, before we
 #     erase the env var that remembers who that was. ---
 $kioskUsername = [Environment]::GetEnvironmentVariable("CHRONO_KIOSK_USERNAME", "Machine")
@@ -55,6 +69,9 @@ if ($kioskUsername) {
 }
 
 # --- Remove machine environment variables set by install-service.ps1 ---
+# CHRONO_RECOVERY_PIN_HASH is no longer written (the recovery PIN now lives as a
+# salted record in recovery.hash, removed with the secret dir below) but stays in
+# this list to clean it up on machines upgraded from a pre-Phase-1b install.
 Write-Host "Removing Chrono machine environment variables..."
 foreach ($var in @(
     "CHRONO_ENV",
@@ -66,7 +83,8 @@ foreach ($var in @(
     [Environment]::SetEnvironmentVariable($var, $null, "Machine")
 }
 
-# --- Remove secret storage (control.key / seal.key / sealed station state) ---
+# --- Remove secret storage (control.key / seal.key / recovery.hash / sealed
+#     station state) ---
 $SecretDir = Join-Path $env:ProgramData "Chrono"
 if (Test-Path $SecretDir) {
     Write-Host "Removing secret storage at $SecretDir..."

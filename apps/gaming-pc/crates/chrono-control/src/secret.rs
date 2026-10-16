@@ -56,6 +56,16 @@ pub fn control_key_path() -> PathBuf {
     base_dir().join("control.key")
 }
 
+/// Location of the operator-recovery-PIN hash file. Lives in the same ACL'd
+/// directory as `control.key`/`seal.key` (SYSTEM + Administrators only), so the
+/// non-admin kiosk user cannot read it. Unlike the control/seal keys this holds
+/// a salted PBKDF2 record (`salt$iterations$hash`), not a DPAPI-sealed secret —
+/// the ACL is the confidentiality boundary and the KDF resists brute force even
+/// if the record leaks.
+pub fn recovery_hash_path() -> PathBuf {
+    base_dir().join("recovery.hash")
+}
+
 /// Read the provisioned control key, or `None` when absent/empty.
 pub fn read_control_key() -> Option<String> {
     read_secret(&control_key_path())

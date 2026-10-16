@@ -8,6 +8,7 @@ mod heartbeat;
 mod http;
 mod identity;
 mod kiosk;
+mod kiosk_env;
 mod policy;
 mod process_monitor;
 mod realtime;

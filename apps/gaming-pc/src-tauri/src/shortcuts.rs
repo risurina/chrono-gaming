@@ -23,14 +23,12 @@ const TRAPPED: [&str; 9] = [
 /// The operator recovery chord (always registered in production lockdown).
 pub const RECOVERY_SHORTCUT: &str = "CmdOrCtrl+Alt+Shift+U";
 
-fn is_dev() -> bool {
-    cfg!(debug_assertions) || std::env::var("NODE_ENV").as_deref() == Ok("development")
-}
-
 /// Register/unregister the escape-shortcut traps. No-op in dev (keeps the box
 /// escapable) — the recovery chord is bound once at startup by `init_recovery`.
+/// Dev status comes from the machine-only detector (`kiosk_env`), never a
+/// user-writable env var — see the hardening-plan #1 Phase 1 note.
 pub fn set_trapping(app: &AppHandle, enable: bool) {
-    if is_dev() {
+    if crate::kiosk_env::is_dev() {
         return;
     }
     let gs = app.global_shortcut();
@@ -46,7 +44,7 @@ pub fn set_trapping(app: &AppHandle, enable: bool) {
 
 /// Bind the recovery chord + install the shared handler. Call once at setup.
 pub fn init_recovery(app: &AppHandle) {
-    if is_dev() {
+    if crate::kiosk_env::is_dev() {
         return;
     }
     let gs = app.global_shortcut();

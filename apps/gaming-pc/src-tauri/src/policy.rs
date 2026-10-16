@@ -58,10 +58,11 @@ pub fn policies_to_revert() -> Vec<(&'static str, &'static str)> {
     ]
 }
 
-/// True when policies should be skipped (non-Windows or dev mode) — matches the
-/// `!isWin32 || NODE_ENV==='development'` guard.
+/// True when policies should be skipped (non-Windows or dev mode). Dev status
+/// comes from the machine-only detector (`kiosk_env`), never a user-writable env
+/// var — see the hardening-plan #1 Phase 1 note in `kiosk_env.rs`.
 pub fn should_skip() -> bool {
-    !cfg!(windows) || std::env::var("NODE_ENV").as_deref() == Ok("development")
+    !cfg!(windows) || crate::kiosk_env::is_dev()
 }
 
 /// `apply`/`revert` run on every kiosk state broadcast — including from

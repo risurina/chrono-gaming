@@ -9,8 +9,10 @@
 mod control;
 mod enforcement;
 mod locker;
+mod recovery;
 #[cfg(windows)]
 mod session;
+mod session_sync;
 mod state;
 mod store;
 mod supervise;
@@ -60,6 +62,16 @@ fn control_port() -> u16 {
 }
 
 fn main() {
+    // Install-time helper, invoked by `install-service.ps1` *before* the service
+    // runs: read an operator recovery PIN from stdin (never argv, so it can't
+    // leak via the process table) and print its salted PBKDF2 record. Sharing
+    // this code path with verification guarantees the stored record and the
+    // runtime check derive identically. Checked before logger init so stdout
+    // carries only the record. The PIN is never logged or persisted here.
+    if std::env::args().nth(1).as_deref() == Some("hash-pin") {
+        std::process::exit(run_hash_pin());
+    }
+
     env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info")).init();
 
     // On Windows, if launched by the Service Control Manager, run under it;
@@ -72,6 +84,25 @@ fn main() {
     }
 
     run_interactive();
+}
+
+/// `chrono-guard hash-pin`: derive the salted recovery record for a PIN read
+/// from stdin. Rejects PINs shorter than 8 characters. Returns a process exit
+/// code (0 = success).
+fn run_hash_pin() -> i32 {
+    use std::io::Read;
+    let mut input = String::new();
+    if std::io::stdin().read_to_string(&mut input).is_err() {
+        eprintln!("hash-pin: failed to read PIN from stdin");
+        return 1;
+    }
+    let pin = input.trim_end_matches(['\r', '\n']);
+    if pin.chars().count() < 8 {
+        eprintln!("hash-pin: recovery PIN must be at least 8 characters");
+        return 2;
+    }
+    println!("{}", recovery::hash_pin(pin));
+    0
 }
 
 /// Run the guard in the foreground until Ctrl-C (dev / manual launch).
@@ -118,11 +149,17 @@ where
         chrono_control::station_state_path(),
     ));
 
+    // Server credentials the UI hands the guard over the signed control channel;
+    // shared with the session-sync loop so the guard can ask the server the
+    // authoritative "is there an active session?" question itself.
+    let credentials = session_sync::shared_credentials();
+
     // Background enforcers share the authoritative station state.
     enforcement::spawn(station.clone(), Arc::new(locker::WorkstationLocker));
     watchdog::spawn(station.clone(), Arc::new(watchdog::SystemSupervisor::default()));
+    session_sync::spawn(station.clone(), credentials.clone());
 
-    let state = AppState::new(control_key, station);
+    let state = AppState::new(control_key, station, credentials);
     let app = control::router(state);
     // Loopback-only: the control channel must never be reachable off-host.
     let addr = SocketAddr::from((Ipv4Addr::LOCALHOST, control_port()));

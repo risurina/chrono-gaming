@@ -19,6 +19,18 @@ log = "0.4"
 env_logger = "0.11"
 sysinfo = "0.33"
 time = { version = "0.3", features = ["parsing"] }
+# Server-authoritative session polling (Phase 3): the guard asks chrono-api the
+# authoritative "is there an active session?" question itself. native-tls
+# (SChannel on Windows) matches src-tauri's own reqwest choice and avoids ring's
+# C build step, keeping the macOS→Windows cross-check clean. Resolves to the same
+# reqwest 0.12.28 already pinned in Cargo.lock by the Tauri core.
+reqwest = { version = "0.12", default-features = false, features = ["json", "native-tls"] }
+# Operator-recovery-PIN KDF: salted, slow PBKDF2-HMAC-SHA256 with constant-time
+# compare. digest/hmac/sha2 versions line up with the rest of the workspace.
+pbkdf2 = "0.12"
+sha2 = "0.10"
+subtle = "2"
+hex = "0.4"
 
 # Native workstation lock (LockWorkStation), Windows-service SCM entry, and
 # the session-aware UI relaunch (CreateProcessAsUser into the active console
