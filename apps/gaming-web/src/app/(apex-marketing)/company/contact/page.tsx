@@ -65,7 +65,7 @@ export default function CompanyContactPage() {
               ))}
             </ul>
 
-            <div className="rounded-xl border border-primary/20 bg-primary/5 p-4">
+            <div className="rounded-lg border border-primary/20 bg-primary/5 p-4">
               <p className="flex items-center gap-2 text-xs font-medium text-primary/80">
                 <span
                   className="h-2 w-2 shrink-0 animate-pulse rounded-full bg-emerald-500"

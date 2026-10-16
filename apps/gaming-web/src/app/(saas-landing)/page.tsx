@@ -946,10 +946,12 @@ export default async function Home({
                         </Stack>
                         <Link
                           href="/contact"
-                          className={buttonVariants({
-                            variant: tier.recommended ? "default" : "outline",
-                            className: "w-full",
-                          })}
+                          className={cn(
+                            buttonVariants({
+                              variant: tier.recommended ? "default" : "outline",
+                            }),
+                            "w-full rounded-full",
+                          )}
                         >
                           Talk to us
                         </Link>

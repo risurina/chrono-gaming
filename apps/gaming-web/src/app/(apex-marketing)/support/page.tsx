@@ -79,7 +79,7 @@ export default function SupportPage() {
               {SUPPORT_PATHS.map((path) => (
                 <div
                   key={path.title}
-                  className="rounded-2xl border border-border bg-muted/30 p-5 transition-colors hover:bg-muted/50"
+                  className="rounded-lg border border-border bg-muted/30 p-5 transition-colors hover:bg-muted/50"
                 >
                   <h4 className="mb-2 text-sm font-bold text-foreground">
                     {path.title}

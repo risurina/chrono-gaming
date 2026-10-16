@@ -5,7 +5,7 @@ export type FaqAccordionEntry = { q: string; a: string };
 
 function FaqAccordionItem({ q, a }: FaqAccordionEntry) {
   return (
-    <details className="group rounded-xl bg-secondary px-6 py-5">
+    <details className="group rounded-lg bg-secondary px-6 py-5">
       <summary className="flex cursor-pointer list-none items-center justify-between gap-4 text-xs font-bold uppercase tracking-widest text-secondary-foreground marker:content-none">
         {q}
         <ChevronDown

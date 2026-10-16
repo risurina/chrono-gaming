@@ -88,7 +88,7 @@ const LABEL = "text-[10px] font-black uppercase tracking-[0.2em] text-muted-fore
 const PILL_CTA =
   "h-12 rounded-full px-8 text-xs font-black uppercase tracking-widest";
 const PANEL =
-  "rounded-2xl border border-border bg-card/40 p-6 transition-colors hover:border-primary/40";
+  "rounded-lg border border-border bg-card/40 p-6 transition-colors hover:border-primary/40";
 
 /** Eyebrow + big uppercase title + optional lead. */
 function SectionIntro({
@@ -422,7 +422,7 @@ export function TenantRates({ rates, cta }: TenantRatesProps) {
               key={rate.title}
               gap={0}
               className={cn(
-                "relative flex flex-col overflow-hidden rounded-2xl border bg-card/40 p-8 transition-all",
+                "relative flex flex-col overflow-hidden rounded-lg border bg-card/40 p-8 transition-all",
                 rate.isPopular
                   ? "z-10 border-primary/50 premium-card-shadow hover:border-primary"
                   : "border-border hover:border-primary/40",
@@ -554,7 +554,7 @@ export function TenantSpecs({ specs = {} }: TenantSpecsProps) {
                 <Row
                   items="center"
                   justify="center"
-                  className="h-10 w-10 shrink-0 rounded-xl bg-primary/10"
+                  className="h-10 w-10 shrink-0 rounded-lg bg-primary/10"
                 >
                   <Zap className="hidden" aria-hidden />
                   <Icon className="h-4.5 w-4.5 text-primary" aria-hidden />
@@ -813,7 +813,7 @@ export function TenantStations({
               justify="between"
               items="center"
               className={cn(
-                "rounded-xl border px-4 py-3",
+                "rounded-lg border px-4 py-3",
                 isOpen
                   ? "border-chart-2/30 bg-chart-2/5"
                   : "border-border bg-card/30",
@@ -836,7 +836,7 @@ export function TenantStations({
                   key={label}
                   justify="between"
                   items="center"
-                  className="rounded-xl border border-border px-4 py-3"
+                  className="rounded-lg border border-border px-4 py-3"
                 >
                   <Row items="center" gap={3}>
                     <span
@@ -909,7 +909,7 @@ export function TenantStations({
                             key={station.id}
                             gap={3}
                             className={cn(
-                              "rounded-xl border p-3 transition-colors",
+                              "rounded-lg border p-3 transition-colors",
                               isFree
                                 ? "border-chart-2/40 hover:border-chart-2"
                                 : "border-border opacity-70 hover:opacity-100",
@@ -986,7 +986,7 @@ export function TenantEvents({ followHref }: TenantEventsProps) {
         />
         <Stack
           gap={6}
-          className="mx-auto max-w-xl items-center rounded-2xl border border-dashed border-border p-12 text-center"
+          className="mx-auto max-w-xl items-center rounded-lg border border-dashed border-border p-12 text-center"
         >
           <Trophy className="h-8 w-8 text-primary/50" aria-hidden />
           <h3 className="text-2xl font-black uppercase tracking-widest">
@@ -1194,7 +1194,7 @@ export function TenantContact({
           {mapsQuery ? (
             <Stack
               gap={0}
-              className="relative aspect-square w-full overflow-hidden rounded-2xl border border-border"
+              className="relative aspect-square w-full overflow-hidden rounded-lg border border-border"
             >
               <iframe
                 title={`Map showing ${address}`}

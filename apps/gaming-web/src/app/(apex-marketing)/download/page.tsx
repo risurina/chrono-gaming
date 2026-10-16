@@ -250,8 +250,8 @@ export default async function DownloadPage() {
               {REQUIREMENTS.map((req) => {
                 const Icon = req.icon;
                 return (
-                  <Row key={req.title} gap={3} className="rounded-2xl border bg-muted/30 p-5">
-                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                  <Row key={req.title} gap={3} className="rounded-lg border bg-muted/30 p-5">
+                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
                       <Icon size={18} aria-hidden />
                     </div>
                     <Stack gap={1}>
@@ -266,7 +266,7 @@ export default async function DownloadPage() {
 
           <Card className="mx-auto w-full max-w-md">
             <CardContent className="flex flex-col items-center gap-6 p-8 text-center sm:p-10">
-              <div className="flex h-20 w-20 items-center justify-center rounded-3xl bg-primary/10 text-primary">
+              <div className="flex h-20 w-20 items-center justify-center rounded-lg bg-primary/10 text-primary">
                 <Download size={40} aria-hidden />
               </div>
 
