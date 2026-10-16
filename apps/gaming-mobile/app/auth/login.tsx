@@ -1,4 +1,4 @@
-import { logger } from '../../lib/logger.js';
+import { logger } from '../../lib/logger';
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Alert } from 'react-native';
 import { useRouter } from 'expo-router';
@@ -7,8 +7,9 @@ import { ScreenHeader } from '../../components/layout/ScreenHeader';
 import { FormInput } from '../../components/ui/FormInput';
 import { GoldButton } from '../../components/ui/GoldButton';
 import { Colors } from '../../constants/theme';
-import { useApi } from '../../lib/ApiContext';
-import { resolveLandingRoute } from '../../lib/post-auth';
+import { signInWithEmail } from '../../lib/mobile-api-client';
+import { tokenStorage } from '../../lib/token-storage';
+import { restoreTenantContextFromHistory } from '../../lib/session-context';
 
 export default function LoginScreen() {
   const [email, setEmail] = useState('');
@@ -16,7 +17,6 @@ export default function LoginScreen() {
   const [loading, setLoading] = useState(false);
   const themeColors = Colors.dark;
   const router = useRouter();
-  const api = useApi();
 
   const handleLogin = async () => {
     if (!email || !password) {
@@ -26,10 +26,33 @@ export default function LoginScreen() {
 
     setLoading(true);
     try {
-      // Global-customer sign-in: the session cookie is captured by the API
-      // client and persisted in SecureStore. Tenant/venue is selected next.
-      await api.customerAuth.signIn({ email: email.trim(), password });
-      router.replace(await resolveLandingRoute());
+      const { token } = await signInWithEmail(email, password);
+
+      // A swallowed save used to let us navigate as if signed in and then 401
+      // on the next request; saveToken now throws, so treat it as a hard stop.
+      try {
+        await tokenStorage.saveToken(token);
+      } catch {
+        Alert.alert(
+          'Login Failed',
+          'We signed you in but could not securely save your session on this device. Please try again.',
+        );
+        return;
+      }
+
+      // Resolve the member's active tenant/branch from their visited cafes so
+      // tenant-scoped member routes work immediately after login. Distinguish a
+      // real lookup failure from "no cafe joined yet" so we don't silently hide
+      // a connectivity/server problem behind a "No Linked Cafe" state.
+      const resolution = await restoreTenantContextFromHistory();
+      if (resolution.status === 'error') {
+        Alert.alert(
+          'Heads up',
+          'We could not load your linked cafes right now. You can still continue and try again from the app.',
+        );
+      }
+
+      router.replace('/customer');
     } catch (error: any) {
       logger.warn('Login failed:', error.message);
       Alert.alert('Login Failed', error.message || 'Invalid credentials');

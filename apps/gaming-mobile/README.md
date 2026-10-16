@@ -1,50 +1,86 @@
-# Welcome to your Expo app 👋
+# Chrono Mobile Application
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+The **Chrono Mobile Application** is the customer-facing interface for the Chrono platform, built with Expo and React Native. It provides a premium, "Elegant Gold" experience for users to manage their time credits, discover branches, and track their sessions.
 
-## Get started
+## 📱 Features
 
-1. Install dependencies
+- **Auth & Onboarding**: Secure login and registration flows.
+- **Branch Discovery**: Find and view details of available branches.
+- **Session Management**: Start sessions via QR codes and track active time with real-time countdowns.
+- **Digital Wallet**: Manage balance, view transaction history, and top-up time credits.
+- **Session History**: Detailed logs of past usage and activity.
+- **Premium UI**: Consistent "Elegant Gold" theme with support for both light and dark modes.
 
+## 🚀 Getting Started
+
+### Prerequisites
+
+- [Node.js](https://nodejs.org/) (LTS)
+- [pnpm](https://pnpm.io/) (Workspaces enabled)
+- [Expo Go](https://expo.dev/go) app on your mobile device OR Android/iOS Emulator
+
+### Installation
+
+1. Install dependencies from the project root:
    ```bash
-   npm install
+   pnpm install
    ```
 
-2. Start the app
-
+2. Set up environment variables:
    ```bash
-   npx expo start
+   cp .env.example .env
    ```
 
-In the output, you'll find options to open the app in a
+### Development
 
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
-
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
-
-## Get a fresh project
-
-When you're ready, run:
+Start the development server:
 
 ```bash
-npm run reset-project
+pnpm dev
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+- Press `a` for Android Emulator
+- Press `i` for iOS Simulator
+- Press `w` for Web
+- Scan the QR code with Expo Go to run on a physical device
 
-## Learn more
+## 📁 Project Structure
 
-To learn more about developing your project with Expo, look at the following resources:
+- `app/`: File-based routing and screen definitions.
+- `assets/`: Images, icons, and fonts.
+- `components/`: 
+  - `ui/`: Core design system primitives (Buttons, Cards, Inputs).
+  - `layout/`: Shared layout components (Headers, Tab Bars).
+  - `customer/`: Feature-specific UI components.
+- `constants/`: Theme tokens, color palettes, and schemas.
+- `hooks/`: Custom React hooks for business logic and data.
+- `lib/`: Core services (API Client, Wallet logic, Storage, Logger).
+- `.maestro/`: E2E test suites for mobile automation.
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+## 🧪 Testing
 
-## Join the community
+### Unit Tests
+```bash
+pnpm test
+```
 
-Join our community of developers creating universal apps.
+### E2E Testing (Maestro)
+Ensure you have [Maestro](https://maestro.mobile.dev/) installed.
 
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+```bash
+# Run login flow test
+maestro test .maestro/login_flow.yaml
+```
+
+## 🛠 Tech Stack
+
+- **Framework**: [Expo](https://expo.dev/) (SDK 54)
+- **Routing**: [Expo Router](https://docs.expo.dev/router/introduction/)
+- **Language**: [TypeScript](https://www.typescriptlang.org/)
+- **Animation**: [React Native Reanimated](https://docs.swmansion.com/react-native-reanimated/)
+- **Storage**: [Expo Secure Store](https://docs.expo.dev/versions/latest/sdk/secure-store/)
+- **Styling**: Native components with theme-aware tokens.
+
+## 📄 License
+
+Part of the Oikos Ecosystem.

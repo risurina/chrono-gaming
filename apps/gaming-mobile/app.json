@@ -45,7 +45,7 @@
       "reactCompiler": false
     },
     "extra": {
-      "apiUrl": "http://api.localtest.me:8787"
+      "apiUrl": "https://chrono.api.izur.com.ph/api/v1"
     }
   }
 }

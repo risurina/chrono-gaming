@@ -611,3 +611,25 @@ not literally unreferenced — flag for cleanup consideration in Phase 2, not a 
 
 None. Every mismatch above is a client-repo fix. `pnpm typecheck` was not run for this
 reason (no code changed).
+
+### Addendum (2026-10-16) — Electron client integration + one genuine server gap
+
+The in-repo Electron kiosk (`apps/gaming-pc`, the non-Tauri client this plan's "Out of
+Scope" had set aside) was brought online against this same `/api/v1/device/*` contract —
+every Phase-1 diff-table row applied to it verbatim (it had the identical oikos-era
+`pc-client/*` + Socket.IO + `X-Device-Token` + handshake assumptions). All fixes were
+client-side (`apps/gaming-pc`): `pair` → `auth` bootstrap, `Authorization: Bearer` +
+`x-device-fingerprint`, heartbeat field rename, singular `/security-alert`, kiosk
+email/password login via `POST /api/v1/device/session/start` (QR start stays deferred),
+and a plain-WS realtime client (`ws`) at `/api/v1/device/ws?scope=device:<id>` replacing
+Socket.IO.
+
+**One genuine server gap was found and fixed** (the Phase-1 rule's sanctioned case — a
+field the client legitimately needs): the realtime mount only delivers a device's private
+`device.command` / `session.state` / `wallet.low` pushes on the `device:<deviceId>` scope
+channel (there is no implicit per-actor channel — `route.ts` `buildChannels`), yet NO
+device-facing endpoint returned the device's own id. `POST /api/v1/device/auth` now
+returns `deviceId` in all three branches (new-device insert, re-pair update, idempotent
+re-auth) so the client can form its scope. Additive, non-secret (the device's own id),
+non-breaking; benefits the Tauri client too. `pnpm --filter @chrono/gaming-api typecheck`
+passes; no schema/RLS/tenant-boundary change, so `rls:proof` was not required.

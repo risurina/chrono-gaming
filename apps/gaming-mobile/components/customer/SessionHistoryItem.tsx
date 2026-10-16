@@ -1,41 +1,34 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
-import type { PortalSessionSummary } from '../../constants/schemas/api';
+import { SessionHistoryItem as HistoryType } from '../../constants/schemas/history';
 import { Colors } from '../../constants/theme';
 import { formatCurrency, formatDate, formatDuration } from '../../lib/format';
 import { StatusBadge } from '../ui/StatusBadge';
-import { sessionBadgeStatus } from './ActiveSessionCard';
 
 interface SessionHistoryItemProps {
-  item: PortalSessionSummary;
+  item: HistoryType;
 }
 
 export const SessionHistoryItem: React.FC<SessionHistoryItemProps> = ({ item }) => {
   const themeColors = Colors.dark;
 
-  const durationLabel =
-    item.actualBillableSeconds != null
-      ? formatDuration(Math.round(item.actualBillableSeconds / 60))
-      : '—';
-  const costLabel = item.amountCharged != null ? formatCurrency(Number(item.amountCharged)) : '—';
-
   return (
     <View style={[styles.container, { borderBottomColor: themeColors.border }]}>
       <View style={styles.row}>
         <View>
-          <Text style={[styles.branch, { color: themeColors.text }]}>{item.stationName}</Text>
+          <Text style={[styles.Branch, { color: themeColors.text }]}>{item.branchName}</Text>
           <Text style={[styles.details, { color: themeColors.mutedText }]}>
-            {formatDate(item.startedAt)}
+            {formatDate(item.date)} • {item.stationName}
           </Text>
         </View>
-        <StatusBadge status={sessionBadgeStatus(item.status)} label={item.status} />
+        <StatusBadge status="muted" label={item.status} />
       </View>
 
       <View style={styles.footer}>
         <Text style={[styles.duration, { color: themeColors.mutedText }]}>
-          Duration: {durationLabel}
+          Duration: {formatDuration(item.durationMinutes)}
         </Text>
-        <Text style={[styles.cost, { color: themeColors.text }]}>{costLabel}</Text>
+        <Text style={[styles.cost, { color: themeColors.text }]}>{formatCurrency(item.cost)}</Text>
       </View>
     </View>
   );
@@ -52,7 +45,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'flex-start',
   },
-  branch: {
+  Branch: {
     fontSize: 16,
     fontWeight: '700',
     marginBottom: 4,

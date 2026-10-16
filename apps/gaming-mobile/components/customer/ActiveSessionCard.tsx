@@ -4,56 +4,27 @@ import { PremiumCard } from '../ui/PremiumCard';
 import { StatusBadge } from '../ui/StatusBadge';
 import { Colors } from '../../constants/theme';
 import { formatTimeRemaining } from '../../lib/format';
-import type { ActiveSession } from '../../constants/schemas/api';
+import { ActiveSession } from '../../constants/schemas/session';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 
 interface ActiveSessionCardProps {
-  session: ActiveSession;
-  branchName?: string;
+  Session: ActiveSession;
 }
 
-/** Map the API session status onto the StatusBadge palette. */
-export function sessionBadgeStatus(
-  status: 'active' | 'paused' | 'ended',
-): 'active' | 'warning' | 'muted' {
-  if (status === 'active') return 'active';
-  if (status === 'paused') return 'warning';
-  return 'muted';
-}
-
-/** Seconds remaining until scheduled end, or elapsed for an open-ended session. */
-export function sessionClock(session: Pick<ActiveSession, 'startedAt' | 'scheduledEndAt'>): {
-  seconds: number;
-  label: string;
-} {
-  const now = Date.now();
-  if (session.scheduledEndAt) {
-    const end = new Date(session.scheduledEndAt).getTime();
-    return { seconds: Math.max(0, Math.floor((end - now) / 1000)), label: 'TIME REMAINING' };
-  }
-  const start = new Date(session.startedAt).getTime();
-  return { seconds: Math.max(0, Math.floor((now - start) / 1000)), label: 'ELAPSED' };
-}
-
-export const ActiveSessionCard: React.FC<ActiveSessionCardProps> = ({ session, branchName }) => {
+export const ActiveSessionCard: React.FC<ActiveSessionCardProps> = ({ Session }) => {
   const themeColors = Colors.dark;
   const router = useRouter();
-  const clock = sessionClock(session);
 
   return (
-    <TouchableOpacity onPress={() => router.push('/customer/session')} activeOpacity={0.9}>
+    <TouchableOpacity onPress={() => router.push('/customer/Session')} activeOpacity={0.9}>
       <PremiumCard variant="gold-border" style={styles.container} withGlow>
         <View style={styles.header}>
           <View>
-            <Text style={[styles.title, { color: themeColors.text }]}>
-              {session.stationName.toUpperCase()}
-            </Text>
-            {branchName ? (
-              <Text style={[styles.subtitle, { color: themeColors.mutedText }]}>{branchName}</Text>
-            ) : null}
+            <Text style={[styles.title, { color: themeColors.text }]}>{Session.stationName.toUpperCase()}</Text>
+            <Text style={[styles.subtitle, { color: themeColors.mutedText }]}>{Session.branchName}</Text>
           </View>
-          <StatusBadge status={sessionBadgeStatus(session.status)} label={session.status} />
+          <StatusBadge status={Session.status} label={Session.status.toUpperCase()} />
         </View>
 
         <View style={styles.timerContainer}>
@@ -61,9 +32,9 @@ export const ActiveSessionCard: React.FC<ActiveSessionCardProps> = ({ session, b
             <MaterialIcons name="timer" size={24} color={themeColors.primary} />
           </View>
           <View>
-            <Text style={[styles.timerLabel, { color: themeColors.mutedText }]}>{clock.label}</Text>
+            <Text style={[styles.timerLabel, { color: themeColors.mutedText }]}>TIME REMAINING</Text>
             <Text style={[styles.timer, { color: themeColors.primary, fontFamily: 'monospace' }]}>
-              {formatTimeRemaining(clock.seconds)}
+              {formatTimeRemaining(Session.timeRemainingSeconds)}
             </Text>
           </View>
         </View>

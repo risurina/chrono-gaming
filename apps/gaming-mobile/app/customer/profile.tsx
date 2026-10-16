@@ -3,18 +3,17 @@ import { View, Text, StyleSheet, TouchableOpacity, Alert } from 'react-native';
 import { MobileScreen } from '../../components/layout/MobileScreen';
 import { ScreenHeader } from '../../components/layout/ScreenHeader';
 import { PremiumCard } from '../../components/ui/PremiumCard';
+import { ErrorBanner } from '../../components/ui/ErrorBanner';
 import { Colors } from '../../constants/theme';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useCustomerData } from '../../hooks/useCustomerData';
-import { useApi } from '../../lib/ApiContext';
-import { sessionStorage } from '../../lib/session-storage';
+import { tokenStorage } from '../../lib/token-storage';
 
 export default function ProfileScreen() {
   const themeColors = Colors.dark;
   const router = useRouter();
-  const api = useApi();
-  const { customer, profile, loading } = useCustomerData();
+  const { profile, loading, error, refresh } = useCustomerData();
 
   const handleLogout = async () => {
     Alert.alert('Logout', 'Are you sure you want to log out?', [
@@ -23,46 +22,50 @@ export default function ProfileScreen() {
         text: 'Logout',
         style: 'destructive',
         onPress: async () => {
-          await api.customerAuth.signOut().catch(() => {});
-          await sessionStorage.clearAll();
+          // clearAll now throws on failure; do not navigate away reporting
+          // success while the token still survives on the device.
+          try {
+            await tokenStorage.clearAll();
+          } catch {
+            Alert.alert(
+              'Logout failed',
+              'We could not clear your session from this device. Please try again.',
+            );
+            return;
+          }
           router.replace('/');
-        },
-      },
+        }
+      }
     ]);
   };
 
   const menuItems = [
     { id: 'acc', label: 'Account Information', icon: 'person-outline' },
-    { id: 'cafe', label: 'Your Cafes', icon: 'business' },
-    { id: 'loyalty', label: 'Loyalty & Rewards', icon: 'stars' },
-    { id: 'credits', label: 'Time Credits', icon: 'schedule' },
-    { id: 'topup', label: 'Top Up Wallet', icon: 'account-balance-wallet' },
-    { id: 'reservations', label: 'Reservations', icon: 'event-seat' },
-    { id: 'promos', label: 'Promos', icon: 'local-offer' },
-    { id: 'activity', label: 'Activity', icon: 'history' },
+    { id: 'cafe', label: 'Linked Cafes', icon: 'business' },
+    { id: 'notif', label: 'Notifications', icon: 'notifications-none' },
+    { id: 'help', label: 'Help & Support', icon: 'help-outline' },
     { id: 'logout', label: 'Logout', icon: 'logout', color: themeColors.danger },
   ];
 
-  const routes: Record<string, string> = {
-    acc: '/customer/account',
-    cafe: '/join',
-    loyalty: '/customer/loyalty',
-    credits: '/customer/credits',
-    topup: '/customer/topup',
-    reservations: '/customer/reservations',
-    promos: '/customer/promos',
-    activity: '/customer/activity',
-  };
+  const name = profile?.name || profile?.username || 'Guest';
+  const email = profile?.email || 'No email provided';
+  const memberId = profile?.id?.substring(0, 8).toUpperCase() || '---';
 
-  const onMenuPress = (id: string) => {
-    if (id === 'logout') handleLogout();
-    else if (routes[id]) router.push(routes[id] as any);
-  };
-
-  const name = customer?.name || 'Guest';
-  const email = customer?.email || 'No email provided';
-  const memberId =
-    profile?.memberCode || customer?.id?.substring(0, 8).toUpperCase() || '---';
+  // An `api.auth.me()` failure must not masquerade as a real "Guest" profile
+  // with a blank email and "ID ---". Surface the error with a retry instead.
+  if (error && !loading) {
+    return (
+      <MobileScreen>
+        <ScreenHeader title="Profile" />
+        <View style={styles.container}>
+          <ErrorBanner
+            message={error.message || 'We could not load your profile.'}
+            onRetry={refresh}
+          />
+        </View>
+      </MobileScreen>
+    );
+  }
 
   return (
     <MobileScreen refreshing={loading}>
@@ -89,9 +92,9 @@ export default function ProfileScreen() {
                 key={item.id}
                 style={[
                   styles.menuItem,
-                  index !== menuItems.length - 1 && { borderBottomWidth: 1, borderBottomColor: themeColors.border },
+                  index !== menuItems.length - 1 && { borderBottomWidth: 1, borderBottomColor: themeColors.border }
                 ]}
-                onPress={() => onMenuPress(item.id)}
+                onPress={() => item.id === 'logout' ? handleLogout() : null}
               >
                 <View style={styles.menuLeft}>
                   <MaterialIcons name={item.icon as any} size={22} color={item.color || themeColors.text} />

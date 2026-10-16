@@ -6,19 +6,17 @@ import { ScreenHeader } from '../../components/layout/ScreenHeader';
 import { FormInput } from '../../components/ui/FormInput';
 import { GoldButton } from '../../components/ui/GoldButton';
 import { Colors } from '../../constants/theme';
-import { useApi } from '../../lib/ApiContext';
-import { resolveLandingRoute } from '../../lib/post-auth';
+import { signUpWithEmail } from '../../lib/mobile-api-client';
+import { tokenStorage } from '../../lib/token-storage';
 
 export default function RegisterScreen() {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
-  const [mobile, setMobile] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
 
   const themeColors = Colors.dark;
   const router = useRouter();
-  const api = useApi();
 
   const handleRegister = async () => {
     if (!name || !email || !password) {
@@ -28,15 +26,19 @@ export default function RegisterScreen() {
 
     setLoading(true);
     try {
-      // Global-customer sign-up establishes the session immediately (cookie
-      // captured by the API client). The mobile number is set later from the
-      // profile screen, once a venue is joined. Route straight to venue select.
-      await api.customerAuth.signUp({
-        email: email.trim(),
-        name: name.trim(),
-        password,
-      });
-      router.replace(await resolveLandingRoute());
+      const result = await signUpWithEmail(name, email, password);
+
+      // Better Auth may return a session token on sign-up; if so, sign the user
+      // straight in. Otherwise send them to the login screen.
+      if (result?.token) {
+        await tokenStorage.saveToken(result.token);
+        router.replace('/join');
+        return;
+      }
+
+      Alert.alert('Success', 'Account created successfully. Please sign in.', [
+        { text: 'OK', onPress: () => router.replace('/auth/login') }
+      ]);
     } catch (error: any) {
       Alert.alert('Registration Failed', error.message || 'An error occurred during registration');
     } finally {
@@ -68,12 +70,6 @@ export default function RegisterScreen() {
             placeholder="john@example.com"
             value={email}
             onChangeText={setEmail}
-          />
-          <FormInput
-            label="Mobile Number"
-            placeholder="+63 917 123 4567"
-            value={mobile}
-            onChangeText={setMobile}
           />
           <FormInput
             label="Password"

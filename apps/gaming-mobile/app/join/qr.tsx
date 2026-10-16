@@ -7,7 +7,8 @@ import { ScreenHeader } from '../../components/layout/ScreenHeader';
 import { GoldButton } from '../../components/ui/GoldButton';
 import { Colors } from '../../constants/theme';
 import { useApi } from '../../lib/ApiContext';
-import { sessionStorage } from '../../lib/session-storage';
+import { persistTenantContextFromJoin } from '../../lib/session-context';
+import { extractQrToken } from '../../lib/qr';
 
 export default function QRJoinScreen() {
   const themeColors = Colors.dark;
@@ -22,67 +23,39 @@ export default function QRJoinScreen() {
     }
   }, [permission]);
 
-  const retry = () => setScanned(false);
-
-  const onActionError = (e: any) => {
-    Alert.alert('Error', e?.message || 'Something went wrong.', [
-      { text: 'Try Again', onPress: retry },
-    ]);
-  };
-
   const handleBarcodeScanned = async ({ data }: { data: string }) => {
     if (scanned) return;
     setScanned(true);
 
-    const token = data.trim();
     try {
-      // Resolve the station QR → tells us which venue/station it belongs to.
-      const resolved = await api.qr.resolve(token);
+      const qrToken = extractQrToken(data);
 
-      // Select that venue so every subsequent /portal call targets it.
-      await sessionStorage.setTenantSlug(resolved.tenantSlug);
-      if (resolved.tenantHost) await sessionStorage.setTenantHost(resolved.tenantHost);
+      if (qrToken.startsWith('qr-')) {
+        // Station-session QR. Starting a session from the app requires a
+        // member-facing session-write endpoint that is not wired yet — direct
+        // the customer to the counter for now.
+        Alert.alert(
+          'Station QR',
+          'Starting a session from your phone is not available yet. Please ask the counter to start your session.',
+          [{ text: 'OK', onPress: () => setScanned(false) }],
+        );
+      } else if (!data.startsWith('http')) {
+        // Cafe/branch code QR — join the cafe.
+        const joined = await api.customers.join(data);
+        // Persist tenant/branch context directly from the join response.
+        await persistTenantContextFromJoin(joined);
 
-      Alert.alert(
-        resolved.branchName,
-        `Station ${resolved.stationName}\n\nStart your session here?`,
-        [
-          { text: 'Cancel', style: 'cancel', onPress: retry },
-          {
-            text: 'Just Join',
-            onPress: async () => {
-              try {
-                await api.venue.apply();
-                router.replace('/customer');
-              } catch (e) {
-                onActionError(e);
-              }
-            },
-          },
-          {
-            text: 'Start Session',
-            onPress: async () => {
-              try {
-                // Ensure membership (idempotent), then consume the QR to start.
-                await api.venue.apply();
-                const result = await api.qr.consume(token);
-                if (result.resolved) {
-                  router.replace('/customer');
-                } else {
-                  Alert.alert('Could not start', 'Please try again or see staff.', [
-                    { text: 'OK', onPress: retry },
-                  ]);
-                }
-              } catch (e) {
-                onActionError(e);
-              }
-            },
-          },
-        ],
-      );
+        Alert.alert('Success', 'Successfully joined the cafe!', [
+          { text: 'OK', onPress: () => router.replace('/customer') }
+        ]);
+      } else {
+         Alert.alert('Invalid QR Code', 'Invalid Chrono QR code. Please scan the QR shown on the PC screen.', [
+          { text: 'Try Again', onPress: () => setScanned(false) }
+        ]);
+      }
     } catch (error: any) {
-      Alert.alert('Invalid QR', error?.message || 'That code could not be read.', [
-        { text: 'Try Again', onPress: retry },
+      Alert.alert('Error', error.message || 'Failed to process QR code', [
+        { text: 'Try Again', onPress: () => setScanned(false) }
       ]);
     }
   };
@@ -120,7 +93,7 @@ export default function QRJoinScreen() {
         <View style={styles.header}>
           <Text style={[styles.title, { color: themeColors.text }]}>Scan QR Code</Text>
           <Text style={[styles.subtitle, { color: themeColors.mutedText }]}>
-            Point your camera at the Chrono QR code on the PC station or cafe counter.
+            Point your camera at the Chrono QR code on the station or cafe counter.
           </Text>
         </View>
 

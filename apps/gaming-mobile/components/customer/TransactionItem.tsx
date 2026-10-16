@@ -1,12 +1,12 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
-import type { WalletTransaction } from '../../constants/schemas/api';
+import { TransactionItem as TransactionType } from '../../constants/schemas/wallet';
 import { Colors } from '../../constants/theme';
 import { formatCurrency, formatDate } from '../../lib/format';
 import { MaterialIcons } from '@expo/vector-icons';
 
 interface TransactionItemProps {
-  transaction: WalletTransaction;
+  transaction: TransactionType;
 }
 
 export const TransactionItem: React.FC<TransactionItemProps> = ({ transaction }) => {
@@ -14,20 +14,15 @@ export const TransactionItem: React.FC<TransactionItemProps> = ({ transaction })
 
   const getIcon = () => {
     switch (transaction.type) {
-      case 'credit':
-        return 'add-circle';
-      case 'debit':
-        return 'payments';
-      case 'adjustment':
-        return 'tune';
-      default:
-        return 'receipt-long';
+      case 'top-up': return 'add-circle';
+      case 'session': return 'computer';
+      case 'extension': return 'more-time';
+      case 'promo': return 'redeem';
+      default: return 'Payment';
     }
   };
 
-  const amount = Number(transaction.amount);
-  const isCredit = transaction.type === 'credit';
-  const sign = isCredit ? '+' : transaction.type === 'debit' ? '-' : '';
+  const isPositive = transaction.amount > 0;
 
   return (
     <View style={[styles.container, { borderBottomColor: themeColors.border }]}>
@@ -35,16 +30,14 @@ export const TransactionItem: React.FC<TransactionItemProps> = ({ transaction })
         <MaterialIcons name={getIcon() as any} size={24} color={themeColors.primary} />
       </View>
       <View style={styles.content}>
-        <Text style={[styles.description, { color: themeColors.text }]}>{transaction.reason}</Text>
-        <Text style={[styles.date, { color: themeColors.mutedText }]}>
-          {formatDate(transaction.createdAt)}
-        </Text>
+        <Text style={[styles.description, { color: themeColors.text }]}>{transaction.description}</Text>
+        <Text style={[styles.date, { color: themeColors.mutedText }]}>{formatDate(transaction.date)}</Text>
       </View>
-      <Text
-        style={[styles.amount, { color: isCredit ? themeColors.success : themeColors.text }]}
-      >
-        {sign}
-        {formatCurrency(amount)}
+      <Text style={[
+        styles.amount,
+        { color: isPositive ? themeColors.success : themeColors.text }
+      ]}>
+        {isPositive ? '+' : ''}{formatCurrency(transaction.amount)}
       </Text>
     </View>
   );

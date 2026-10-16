@@ -47,8 +47,8 @@ config.resolver.unstable_enableSymlinks = true;
 // 5. Block huge irrelevant folders to speed up resolution
 // Using a more surgical regex that works on both macOS and Windows
 config.resolver.blockList = [
-  /.*[/\\]apps[/\\](?!gaming-mobile[/\\]).+[/\\]node_modules[/\\](?!\.pnpm[/\\]).*/,
-  /.*[/\\]apps[/\\]gaming-web[/\\]\.next[/\\]/,
+  /.*[/\\]apps[/\\](?!mobile[/\\]).+[/\\]node_modules[/\\](?!\.pnpm[/\\]).*/,
+  /.*[/\\]apps[/\\]web[/\\]\.next[/\\]/,
   /[/\\]\.(next|turbo|vercel)[/\\]/,
 ];
 

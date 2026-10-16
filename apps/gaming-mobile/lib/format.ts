@@ -25,11 +25,6 @@ export const formatDate = (date: Date | string) => {
   });
 };
 
-export const formatTime = (date: Date | string) => {
-  const d = typeof date === 'string' ? new Date(date) : date;
-  return d.toLocaleTimeString('en-PH', { hour: '2-digit', minute: '2-digit' });
-};
-
 export const formatDuration = (minutes: number) => {
   const h = Math.floor(minutes / 60);
   const m = minutes % 60;

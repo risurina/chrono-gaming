@@ -1,13 +1,14 @@
+import { logger } from '../lib/logger';
 import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
 import { MobileScreen } from '../components/layout/MobileScreen';
 import { GoldButton } from '../components/ui/GoldButton';
 import { Colors } from '../constants/theme';
-import { MOCK_FEATURES } from '../constants/mock-customer-data';
+import { FEATURE_CHIPS } from '../constants/customer-nav';
 import { MaterialIcons } from '@expo/vector-icons';
+import { tokenStorage } from '../lib/token-storage';
 import { apiService } from '../lib/api-service';
-import { resolveLandingRoute } from '../lib/post-auth';
 
 export default function WelcomeScreen() {
   const themeColors = Colors.dark;
@@ -17,12 +18,20 @@ export default function WelcomeScreen() {
   useEffect(() => {
     const checkSession = async () => {
       try {
-        // Verify the stored session cookie is still valid. On failure the API
-        // client clears it; we just fall through to the welcome screen.
-        await apiService.customerAuth.me();
-        router.replace(await resolveLandingRoute());
-      } catch {
-        // No / invalid session — stay on the welcome screen.
+        const token = await tokenStorage.getToken();
+        if (token) {
+          try {
+            // Verify the token is still valid
+            await apiService.auth.me();
+            // If we have a valid token, skip the welcome screen and go to the dashboard
+            router.replace('/customer');
+          } catch (error) {
+            // Token is likely invalid or expired, it will be cleared by the 401 interceptor
+            logger.info('Session invalid, staying on welcome screen');
+          }
+        }
+      } catch (error) {
+        logger.error('Error checking Session:', error);
       } finally {
         setIsInitializing(false);
       }
@@ -53,14 +62,14 @@ export default function WelcomeScreen() {
 
         <View style={styles.content}>
           <Text style={[styles.headline, { color: themeColors.text }]}>
-            Your gaming session starts here.
+            Your gaming Session starts here.
           </Text>
           <Text style={[styles.subheadline, { color: themeColors.mutedText }]}>
             Check your balance, track your time, and stay connected with your gaming cafe.
           </Text>
 
           <View style={styles.featureGrid}>
-            {MOCK_FEATURES.map((feature) => (
+            {FEATURE_CHIPS.map((feature) => (
               <View key={feature.id} style={styles.featureItem}>
                 <View style={[styles.featureIcon, { backgroundColor: 'rgba(214, 168, 79, 0.1)' }]}>
                   <MaterialIcons name={feature.icon as any} size={20} color={themeColors.primary} />

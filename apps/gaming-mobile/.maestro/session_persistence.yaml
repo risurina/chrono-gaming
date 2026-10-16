@@ -1,4 +1,4 @@
-appId: com.izur.chrono
+appId: ph.com.izur.chrono
 ---
 - launchApp
 - tapOn: "I ALREADY HAVE AN ACCOUNT"
@@ -8,9 +8,7 @@ appId: com.izur.chrono
 - inputText: "password123"
 - hideKeyboard
 - tapOn: "Continue"
-- assertVisible: "Join your gaming cafe"
+- assertVisible: "Active Session"
 - stopApp
-# Relaunch: the persisted session cookie keeps the customer signed in, so the
-# welcome screen is skipped and they resume at venue selection.
 - launchApp
-- assertVisible: "Join your gaming cafe"
+- assertVisible: "Active Session"

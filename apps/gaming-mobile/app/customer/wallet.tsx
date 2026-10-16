@@ -1,39 +1,45 @@
-import { logger } from '../../lib/logger.js';
-import React, { useState, useEffect } from 'react';
+import { logger } from '../../lib/logger';
+import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, StyleSheet, ActivityIndicator, Alert } from 'react-native';
 import { MobileScreen } from '../../components/layout/MobileScreen';
 import { ScreenHeader } from '../../components/layout/ScreenHeader';
 import { WalletBalanceCard } from '../../components/customer/WalletBalanceCard';
 import { TransactionItem } from '../../components/customer/TransactionItem';
 import { PremiumCard } from '../../components/ui/PremiumCard';
+import { ErrorBanner } from '../../components/ui/ErrorBanner';
 import { Colors } from '../../constants/theme';
 import { useApi } from '../../lib/ApiContext';
-import type { WalletTransaction } from '../../constants/schemas/api';
+import { normalizeTransaction, RawWalletTransaction, TransactionItem as Transaction } from '../../constants/schemas/wallet';
 
 export default function WalletScreen() {
   const themeColors = Colors.dark;
   const api = useApi();
   const [balance, setBalance] = useState<number>(0);
-  const [transactions, setTransactions] = useState<WalletTransaction[]>([]);
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const loadData = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const [Wallet, txs] = await Promise.all([
+        api.wallet.getBalance(),
+        api.wallet.getHistory(),
+      ]);
+      setBalance(Number(Wallet.balance) || 0);
+      setTransactions((txs as RawWalletTransaction[]).map(normalizeTransaction));
+    } catch (e: any) {
+      logger.error('Failed to load Wallet:', e);
+      setError(e?.message || 'Failed to load your wallet.');
+    } finally {
+      setLoading(false);
+    }
+  }, [api]);
 
   useEffect(() => {
-    async function loadData() {
-      try {
-        const [bal, history] = await Promise.all([
-          api.wallet.balance(),
-          api.wallet.history({ pageSize: 50 }),
-        ]);
-        setBalance(Number(bal.balance));
-        setTransactions(history.items);
-      } catch (e) {
-        logger.error('Failed to load Wallet:', e);
-      } finally {
-        setLoading(false);
-      }
-    }
     loadData();
-  }, [api]);
+  }, [loadData]);
 
   const handleTopUp = () => {
     Alert.alert('Top Up', 'Please visit the cashier to top up your Wallet balance.');
@@ -53,16 +59,28 @@ export default function WalletScreen() {
       <ScreenHeader title="Wallet" showBack />
 
       <View style={styles.container}>
-        <WalletBalanceCard balance={balance} onTopUp={handleTopUp} />
+        {error ? (
+          <ErrorBanner message={error} onRetry={loadData} />
+        ) : (
+          <>
+            <WalletBalanceCard balance={balance} onTopUp={handleTopUp} />
 
-        <View style={styles.section}>
-          <Text style={[styles.sectionTitle, { color: themeColors.mutedText }]}>TRANSACTION HISTORY</Text>
-          <PremiumCard variant="default">
-            {transactions.map((tx) => (
-              <TransactionItem key={tx.id} transaction={tx} />
-            ))}
-          </PremiumCard>
-        </View>
+            <View style={styles.section}>
+              <Text style={[styles.sectionTitle, { color: themeColors.mutedText }]}>TRANSACTION HISTORY</Text>
+              <PremiumCard variant="default">
+                {transactions.length > 0 ? (
+                  transactions.map((tx) => <TransactionItem key={tx.id} transaction={tx} />)
+                ) : (
+                  <View style={{ padding: 16, alignItems: 'center' }}>
+                    <Text style={{ color: themeColors.mutedText, fontSize: 13 }}>
+                      No transactions yet
+                    </Text>
+                  </View>
+                )}
+              </PremiumCard>
+            </View>
+          </>
+        )}
       </View>
     </MobileScreen>
   );

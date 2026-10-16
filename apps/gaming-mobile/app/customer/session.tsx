@@ -1,6 +1,5 @@
-import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, Alert, ActivityIndicator } from 'react-native';
-import { useRouter } from 'expo-router';
+import React, { useCallback, useEffect, useState } from 'react';
+import { View, Text, StyleSheet, ActivityIndicator, Alert } from 'react-native';
 import { MobileScreen } from '../../components/layout/MobileScreen';
 import { ScreenHeader } from '../../components/layout/ScreenHeader';
 import { TimerDisplay } from '../../components/customer/TimerDisplay';
@@ -8,58 +7,71 @@ import { PremiumCard } from '../../components/ui/PremiumCard';
 import { GoldButton } from '../../components/ui/GoldButton';
 import { StatusBadge } from '../../components/ui/StatusBadge';
 import { EmptyState } from '../../components/ui/EmptyState';
+import { ErrorBanner } from '../../components/ui/ErrorBanner';
 import { Colors } from '../../constants/theme';
-import { formatCurrency, formatTime } from '../../lib/format';
-import { MaterialIcons } from '@expo/vector-icons';
+import { formatCurrency, formatDate } from '../../lib/format';
 import { useApi } from '../../lib/ApiContext';
 import { logger } from '../../lib/logger';
-import { sessionBadgeStatus, sessionClock } from '../../components/customer/ActiveSessionCard';
-import type { ActiveSession, SessionSummary, WalletBalance } from '../../constants/schemas/api';
+import { normalizeActiveSession, ActiveSession, RawActiveSession } from '../../constants/schemas/session';
+import { MaterialIcons } from '@expo/vector-icons';
 
 export default function SessionScreen() {
   const themeColors = Colors.dark;
-  const router = useRouter();
   const api = useApi();
-
   const [session, setSession] = useState<ActiveSession | null>(null);
-  const [summary, setSummary] = useState<SessionSummary | null>(null);
-  const [wallet, setWallet] = useState<WalletBalance | null>(null);
+  const [balance, setBalance] = useState<number>(0);
   const [loading, setLoading] = useState(true);
-  const [, setTick] = useState(0); // drives the live timer re-render
+  const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    let mounted = true;
-    (async () => {
-      try {
-        const [s, sum, w] = await Promise.all([
-          api.sessions.active(),
-          api.sessions.summary().catch(() => null),
-          api.wallet.balance().catch(() => null),
-        ]);
-        if (!mounted) return;
-        setSession(s);
-        setSummary(sum);
-        setWallet(w);
-      } catch (e) {
-        logger.error('Failed to load session:', e);
-      } finally {
-        if (mounted) setLoading(false);
-      }
-    })();
-    return () => {
-      mounted = false;
-    };
+  const load = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    const [sessionRes, walletRes] = await Promise.allSettled([
+      api.session.getActive(),
+      api.wallet.getBalance(),
+    ]);
+
+    if (sessionRes.status === 'fulfilled') {
+      // A fulfilled-but-null response is a genuine "no active session"; keep it
+      // distinct from the error state below so the EmptyState still renders.
+      setSession(
+        sessionRes.value
+          ? normalizeActiveSession(sessionRes.value as RawActiveSession)
+          : null,
+      );
+    }
+
+    if (walletRes.status === 'fulfilled') {
+      setBalance(Number(walletRes.value.balance) || 0);
+    } else {
+      // A wallet failure alone degrades to a zero balance rather than blocking
+      // the whole screen, but must not be silently ignored.
+      logger.error('Failed to load wallet balance:', walletRes.reason);
+    }
+
+    // Only a failed session lookup is a real error state; a wallet-only failure
+    // is tolerated above.
+    if (sessionRes.status === 'rejected') {
+      logger.error('Failed to load active session:', sessionRes.reason);
+      setError(
+        (sessionRes.reason as { message?: string })?.message ||
+          'Failed to load your active session.',
+      );
+    }
+
+    setLoading(false);
   }, [api]);
 
-  // Live timer tick every second while a session is shown.
   useEffect(() => {
-    if (!session) return;
-    const id = setInterval(() => setTick((t) => t + 1), 1000);
-    return () => clearInterval(id);
-  }, [session]);
+    load();
+  }, [load]);
 
-  const staffInfo = () =>
-    Alert.alert('Ask staff', 'Please see the counter to extend or end your session.');
+  const showCounterNotice = () => {
+    Alert.alert(
+      'Ask the Counter',
+      'Managing your session from the app is not available yet. Please ask the counter for assistance.',
+    );
+  };
 
   if (loading) {
     return (
@@ -70,103 +82,90 @@ export default function SessionScreen() {
     );
   }
 
+  if (error) {
+    return (
+      <MobileScreen>
+        <ScreenHeader title="Active Session" showBack />
+        <View style={styles.container}>
+          <ErrorBanner message={error} onRetry={load} />
+        </View>
+      </MobileScreen>
+    );
+  }
+
   if (!session) {
     return (
       <MobileScreen>
         <ScreenHeader title="Active Session" showBack />
-        <View style={styles.emptyWrap}>
+        <View style={styles.container}>
           <EmptyState
             icon="desktop-access-disabled"
             title="No active session"
-            description="Scan the QR code at your station to start a session."
-          />
-          <GoldButton
-            title="Scan to Start"
-            onPress={() => router.push('/join/qr')}
-            variant="primary"
-            icon={<MaterialIcons name="qr-code-scanner" size={20} color="#000" />}
+            description="Start a session at your cafe to see live details here."
           />
         </View>
       </MobileScreen>
     );
   }
 
-  const clock = sessionClock(session);
-  const timerStatus = session.status === 'paused' ? 'warning' : 'active';
-  const todayCost = summary ? Number(summary.today.amountCharged) : 0;
-  const balance = wallet ? Number(wallet.balance) : 0;
-
   return (
     <MobileScreen>
       <ScreenHeader title="Active Session" showBack />
 
       <View style={styles.container}>
-        <TimerDisplay seconds={clock.seconds} status={timerStatus} label={clock.label} />
+        <TimerDisplay seconds={session.timeRemainingSeconds} status={session.status} />
 
         <PremiumCard variant="secondary" style={styles.detailsCard}>
           <View style={styles.detailRow}>
             <Text style={[styles.detailLabel, { color: themeColors.mutedText }]}>Status</Text>
-            <StatusBadge status={sessionBadgeStatus(session.status)} label={session.status} />
+            <StatusBadge status={session.status} label={session.status.toUpperCase()} />
           </View>
 
           <View style={[styles.divider, { backgroundColor: themeColors.border }]} />
 
           <View style={styles.detailRow}>
             <Text style={[styles.detailLabel, { color: themeColors.mutedText }]}>Station</Text>
-            <Text style={[styles.detailValue, { color: themeColors.text }]}>
-              {session.stationName}
-            </Text>
+            <Text style={[styles.detailValue, { color: themeColors.text }]}>{session.stationName}</Text>
           </View>
 
           <View style={styles.detailRow}>
             <Text style={[styles.detailLabel, { color: themeColors.mutedText }]}>Started</Text>
-            <Text style={[styles.detailValue, { color: themeColors.text }]}>
-              {formatTime(session.startedAt)}
-            </Text>
+            <Text style={[styles.detailValue, { color: themeColors.text }]}>{formatDate(session.startTime)}</Text>
           </View>
 
-          <View style={styles.detailRow}>
-            <Text style={[styles.detailLabel, { color: themeColors.mutedText }]}>Estimated End</Text>
-            <Text style={[styles.detailValue, { color: themeColors.text }]}>
-              {session.scheduledEndAt ? formatTime(session.scheduledEndAt) : 'Open'}
-            </Text>
-          </View>
+          {!!session.estimatedEndTime && (
+            <View style={styles.detailRow}>
+              <Text style={[styles.detailLabel, { color: themeColors.mutedText }]}>Estimated End</Text>
+              <Text style={[styles.detailValue, { color: themeColors.text }]}>{formatDate(session.estimatedEndTime)}</Text>
+            </View>
+          )}
 
           <View style={[styles.divider, { backgroundColor: themeColors.border }]} />
 
           <View style={styles.detailRow}>
-            <Text style={[styles.detailLabel, { color: themeColors.mutedText }]}>Spent Today</Text>
-            <Text style={[styles.balanceValue, { color: themeColors.accent }]}>
-              {formatCurrency(todayCost)}
-            </Text>
-          </View>
-
-          <View style={styles.detailRow}>
             <Text style={[styles.detailLabel, { color: themeColors.mutedText }]}>Wallet Balance</Text>
-            <Text style={[styles.balanceValue, { color: themeColors.accent }]}>
-              {formatCurrency(balance)}
-            </Text>
+            <Text style={[styles.balanceValue, { color: themeColors.accent }]}>{formatCurrency(balance)}</Text>
           </View>
         </PremiumCard>
 
         <View style={styles.actions}>
           <GoldButton
             title="Extend Time"
-            onPress={staffInfo}
-            variant="outline"
-            icon={<MaterialIcons name="more-time" size={24} color={themeColors.primary} />}
+            onPress={showCounterNotice}
+            variant="primary"
+            icon={<MaterialIcons name="more-time" size={24} color="#000" />}
           />
           <View style={styles.secondaryActions}>
             <GoldButton
               title="Notify Staff"
-              onPress={staffInfo}
+              onPress={showCounterNotice}
               variant="outline"
               style={{ flex: 1 }}
               icon={<MaterialIcons name="notifications" size={20} color={themeColors.primary} />}
             />
             <GoldButton
               title="End Session"
-              onPress={staffInfo}
+              onPress={showCounterNotice}
               variant="outline"
               style={{ flex: 1, borderColor: themeColors.danger }}
               textStyle={{ color: themeColors.danger }}
@@ -176,7 +175,7 @@ export default function SessionScreen() {
         </View>
 
         <Text style={[styles.disclaimer, { color: themeColors.mutedText }]}>
-          Extend or end your session at the counter.
+          Session actions are handled at the counter for now.
         </Text>
       </View>
     </MobileScreen>
@@ -187,11 +186,6 @@ const styles = StyleSheet.create({
   container: {
     paddingHorizontal: 24,
     gap: 32,
-  },
-  emptyWrap: {
-    paddingHorizontal: 24,
-    paddingTop: 48,
-    gap: 24,
   },
   detailsCard: {
     padding: 20,

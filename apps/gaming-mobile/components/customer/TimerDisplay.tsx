@@ -6,14 +6,9 @@ import { formatTimeRemaining } from '../../lib/format';
 interface TimerDisplayProps {
   seconds: number;
   status?: 'active' | 'warning' | 'expired' | 'none';
-  label?: string;
 }
 
-export const TimerDisplay: React.FC<TimerDisplayProps> = ({
-  seconds,
-  status = 'active',
-  label = 'TIME REMAINING',
-}) => {
+export const TimerDisplay: React.FC<TimerDisplayProps> = ({ seconds, status = 'active' }) => {
   const themeColors = Colors.dark;
 
   let timerColor = themeColors.accent;
@@ -23,7 +18,7 @@ export const TimerDisplay: React.FC<TimerDisplayProps> = ({
 
   return (
     <View style={styles.container}>
-      <Text style={[styles.label, { color: themeColors.mutedText }]}>{label}</Text>
+      <Text style={[styles.label, { color: themeColors.mutedText }]}>TIME REMAINING</Text>
       <Text style={[styles.timer, { color: timerColor, fontFamily: 'monospace' }]}>
         {formatTimeRemaining(seconds)}
       </Text>

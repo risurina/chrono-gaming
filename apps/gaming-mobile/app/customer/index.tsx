@@ -7,26 +7,18 @@ import { ActiveSessionCard } from '../../components/customer/ActiveSessionCard';
 import { TransactionItem } from '../../components/customer/TransactionItem';
 import { PremiumCard } from '../../components/ui/PremiumCard';
 import { Colors } from '../../constants/theme';
-import { MOCK_QUICK_ACTIONS } from '../../constants/mock-customer-data';
+import { QUICK_ACTIONS } from '../../constants/customer-nav';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useCustomerData } from '../../hooks/useCustomerData';
+import { ErrorBanner } from '../../components/ui/ErrorBanner';
 
 export default function CustomerHomeScreen() {
   const themeColors = Colors.dark;
   const router = useRouter();
 
-  const {
-    customer,
-    wallet,
-    recentTransactions,
-    activeSession,
-    recentBranch,
-    noVenue,
-    loading,
-    refresh,
-  } = useCustomerData();
+  const { profile, wallet, activeSession, tenantContext, loading, error, refresh } = useCustomerData();
 
-  if (loading && !customer) {
+  if (loading && !profile) {
     return (
       <MobileScreen withSafeArea={true}>
         <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
@@ -36,9 +28,11 @@ export default function CustomerHomeScreen() {
     );
   }
 
-  const name = customer?.name || 'Guest';
-  const cafeName = recentBranch?.branchName || 'Select a cafe';
-  const balance = wallet ? Number(wallet.balance) : 0;
+  const name = profile?.name || profile?.username || 'Guest';
+  const hasCafe = !!tenantContext?.tenantSlug;
+  const cafeName = hasCafe ? tenantContext.tenantSlug!.toUpperCase() : 'No Linked Cafe';
+  const balance = wallet?.balance || 0;
+  const recentTransactions = wallet?.recentTransactions || [];
 
   return (
     <MobileScreen withSafeArea={true} onRefresh={refresh} refreshing={loading}>
@@ -56,7 +50,7 @@ export default function CustomerHomeScreen() {
               borderWidth: 1,
             },
           ]}
-          onPress={() => router.push('/customer/branch')}
+          onPress={() => router.push('/customer/select-cafe')}
         >
           <MaterialIcons name="business" size={16} color={themeColors.primary} />
           <Text style={[styles.cafeName, { color: themeColors.text }]}>{cafeName}</Text>
@@ -64,7 +58,14 @@ export default function CustomerHomeScreen() {
       </View>
 
       <View style={styles.content}>
-        {noVenue && (
+        {error && (
+          <ErrorBanner
+            message={error.message || 'Failed to load your account data.'}
+            onRetry={refresh}
+          />
+        )}
+
+        {!hasCafe && (
           <TouchableOpacity 
             style={[styles.joinBanner, { backgroundColor: themeColors.primary + '15', borderColor: themeColors.primary }]}
             onPress={() => router.push('/join')}
@@ -91,7 +92,7 @@ export default function CustomerHomeScreen() {
             </Text>
           </View>
           {activeSession ? (
-            <ActiveSessionCard session={activeSession} branchName={recentBranch?.branchName} />
+            <ActiveSessionCard Session={activeSession} />
           ) : (
             <PremiumCard variant="default" style={{ padding: 24, alignItems: 'center', gap: 12 }}>
               <MaterialIcons
@@ -113,7 +114,7 @@ export default function CustomerHomeScreen() {
             </Text>
           </View>
           <View style={styles.actionGrid}>
-            {MOCK_QUICK_ACTIONS.map((action) => (
+            {QUICK_ACTIONS.map((action) => (
               <TouchableOpacity
                 key={action.id}
                 style={styles.actionItem}

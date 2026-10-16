@@ -11,8 +11,8 @@ export const BottomTabBar = () => {
 
   const tabs = [
     { name: 'Home', icon: 'home', route: '/customer' },
-    { name: 'Session', icon: 'timer', route: '/customer/session' },
-    { name: 'Wallet', icon: 'account-balance-wallet', route: '/customer/wallet' },
+    { name: 'SessionRow', icon: 'timer', route: '/customer/Session' },
+    { name: 'Wallet', icon: 'account-balance-Wallet', route: '/customer/Wallet' },
     { name: 'Profile', icon: 'person', route: '/customer/profile' },
   ];
 

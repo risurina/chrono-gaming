@@ -1,4 +1,4 @@
-appId: com.izur.chrono
+appId: ph.com.izur.chrono
 ---
 - launchApp
 - assertVisible: "Your gaming session starts here."
@@ -10,6 +10,4 @@ appId: com.izur.chrono
 - inputText: "password123"
 - hideKeyboard
 - tapOn: "Continue"
-# After sign-in the customer picks/joins a venue (unless they already have exactly
-# one membership, in which case they land straight on the dashboard).
-- assertVisible: "Join your gaming cafe"
+- assertVisible: "Active Session"

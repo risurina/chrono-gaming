@@ -1,66 +1,79 @@
 import { useState, useCallback, useEffect } from 'react';
 import { useApi } from '../lib/ApiContext';
-import { sessionStorage } from '../lib/session-storage';
-import type {
-  ActiveSession,
-  CustomerMe,
-  MemberProfile,
-  RecentBranch,
-  WalletBalance,
-  WalletTransaction,
-} from '../constants/schemas/api';
+import { normalizeTransaction, RawWalletTransaction } from '../constants/schemas/wallet';
+import { normalizeActiveSession, RawActiveSession } from '../constants/schemas/session';
+import { tokenStorage } from '../lib/token-storage';
 
-/**
- * Aggregates the customer home dashboard data. The customer identity
- * (`customerAuth.me`) is venue-independent; everything else is tenant-scoped and
- * only fetched once a venue is selected (`noVenue` drives the "join a cafe"
- * banner). Per-call failures degrade to null rather than failing the whole load.
- */
+export interface StoredTenantContext {
+  tenantSlug: string | null;
+  branchCode: string | null;
+}
+
 export function useCustomerData() {
   const api = useApi();
-  const [customer, setCustomer] = useState<CustomerMe | null>(null);
-  const [profile, setProfile] = useState<MemberProfile | null>(null);
-  const [wallet, setWallet] = useState<WalletBalance | null>(null);
-  const [recentTransactions, setRecentTransactions] = useState<WalletTransaction[]>([]);
-  const [activeSession, setActiveSession] = useState<ActiveSession | null>(null);
-  const [recentBranch, setRecentBranch] = useState<RecentBranch | null>(null);
-  const [noVenue, setNoVenue] = useState(false);
+  const [profile, setProfile] = useState<any>(null);
+  const [wallet, setWallet] = useState<any>(null);
+  const [activeSession, setActiveSession] = useState<any>(null);
+  const [tenantContext, setTenantContext] = useState<StoredTenantContext>({ tenantSlug: null, branchCode: null });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
 
   const fetchAll = useCallback(async () => {
-    setError(null);
     try {
-      const me = await api.customerAuth.me().catch(() => null);
-      setCustomer(me);
+      setError(null);
 
-      const slug = await sessionStorage.getTenantSlug();
-      if (!slug) {
-        setNoVenue(true);
-        setProfile(null);
-        setWallet(null);
-        setRecentTransactions([]);
-        setActiveSession(null);
-        setRecentBranch(null);
-        return;
-      }
-      setNoVenue(false);
+      const [tenantSlug, branchCode] = await Promise.all([
+        tokenStorage.getTenantSlug(),
+        tokenStorage.getBranchCode(),
+      ]);
+      setTenantContext({ tenantSlug, branchCode });
 
-      const [profileRes, balanceRes, historyRes, sessionRes, branchRes] = await Promise.allSettled([
-        api.members.me(),
-        api.wallet.balance(),
-        api.wallet.history({ pageSize: 5 }),
-        api.sessions.active(),
-        api.members.recentBranch(),
+      const [meRes, walletBalance, walletHistory, sessionRes] = await Promise.allSettled([
+        api.auth.me(),
+        api.wallet.getBalance(),
+        api.wallet.getHistory(),
+        api.session.getActive(),
       ]);
 
-      setProfile(profileRes.status === 'fulfilled' ? profileRes.value : null);
-      setWallet(balanceRes.status === 'fulfilled' ? balanceRes.value : null);
-      setRecentTransactions(historyRes.status === 'fulfilled' ? historyRes.value.items : []);
-      setActiveSession(sessionRes.status === 'fulfilled' ? sessionRes.value : null);
-      setRecentBranch(branchRes.status === 'fulfilled' ? branchRes.value : null);
+      if (meRes.status === 'fulfilled') {
+        setProfile(meRes.value);
+      }
+
+      if (walletBalance.status === 'fulfilled') {
+        const transactions =
+          walletHistory.status === 'fulfilled'
+            ? (walletHistory.value as RawWalletTransaction[]).map(normalizeTransaction)
+            : [];
+        setWallet({
+          balance: Number(walletBalance.value.balance) || 0,
+          currency: walletBalance.value.currency,
+          status: walletBalance.value.status,
+          recentTransactions: transactions,
+        });
+      }
+
+      if (sessionRes.status === 'fulfilled' && sessionRes.value) {
+        setActiveSession(normalizeActiveSession(sessionRes.value as RawActiveSession));
+      } else {
+        setActiveSession(null);
+      }
+
+      // Surface failures instead of silently rendering zero/empty data.
+      // Profile is always critical; wallet fetches only matter once a tenant
+      // is linked (without a cafe the wallet routes legitimately reject).
+      const criticalResults = [
+        meRes,
+        ...(tenantSlug ? [walletBalance, walletHistory] : []),
+      ];
+      const firstFailure = criticalResults.find(
+        (r): r is PromiseRejectedResult => r.status === 'rejected',
+      );
+      if (firstFailure) {
+        const reason = firstFailure.reason;
+        setError(reason instanceof Error ? reason : new Error(String(reason)));
+      }
     } catch (err: any) {
-      setError(err instanceof Error ? err : new Error(String(err)));
+      setError(err);
     } finally {
       setLoading(false);
     }
@@ -71,13 +84,10 @@ export function useCustomerData() {
   }, [fetchAll]);
 
   return {
-    customer,
     profile,
     wallet,
-    recentTransactions,
     activeSession,
-    recentBranch,
-    noVenue,
+    tenantContext,
     loading,
     error,
     refresh: async () => {

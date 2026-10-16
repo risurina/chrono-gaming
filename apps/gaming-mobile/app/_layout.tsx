@@ -2,6 +2,9 @@ import { Stack } from 'expo-router';
 import { Colors } from '../constants/theme';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { ApiProvider } from '../lib/ApiContext';
+import { initSentry } from '../src/sentry';
+
+initSentry();
 
 export default function RootLayout() {
   const themeColors = Colors.dark;
