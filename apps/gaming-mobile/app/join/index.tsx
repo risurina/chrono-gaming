@@ -13,9 +13,16 @@ import { useApi } from '../../lib/ApiContext';
 import { persistTenantContextFromJoin } from '../../lib/session-context';
 import { logger } from '../../lib/logger';
 
+interface VisitedCafe {
+  tenantSlug: string;
+  tenantName: string;
+  branchName: string;
+  branchCode: string;
+}
+
 export default function JoinCafeScreen() {
   const [code, setCode] = useState('');
-  const [history, setHistory] = useState<any[]>([]);
+  const [history, setHistory] = useState<VisitedCafe[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(true);
   const [historyError, setHistoryError] = useState<string | null>(null);
 
@@ -27,11 +34,22 @@ export default function JoinCafeScreen() {
     setLoadingHistory(true);
     setHistoryError(null);
     try {
-      const data = await api.customers.getHistory();
-      setHistory(data || []);
+      const cafes = await api.customers.getCafes();
+      // Flatten joined tenants + their branches into one tappable list.
+      const rows: VisitedCafe[] = (cafes as any[]).flatMap((cafe) =>
+        (cafe.branches?.length ? cafe.branches : [{ branchName: '', branchCode: '' }]).map(
+          (b: any) => ({
+            tenantSlug: cafe.tenantSlug,
+            tenantName: cafe.tenantName,
+            branchName: b.branchName,
+            branchCode: b.branchCode,
+          }),
+        ),
+      );
+      setHistory(rows);
     } catch (err: any) {
-      logger.error('Failed to fetch history', err);
-      setHistoryError(err?.message || 'Failed to load your visited cafes.');
+      logger.error('Failed to fetch cafes', err);
+      setHistoryError(err?.message || 'Failed to load your joined cafes.');
     } finally {
       setLoadingHistory(false);
     }
@@ -51,8 +69,8 @@ export default function JoinCafeScreen() {
     try {
       const joined = await api.customers.join(codeToJoin);
 
-      // Persist tenant/branch context directly from the join response (falls
-      // back to a history round-trip if the response lacks the tenant slug).
+      // Resolve + persist tenant/branch context from the customer's cafes
+      // (the apply response carries no tenant detail).
       await persistTenantContextFromJoin(joined);
 
       Alert.alert('Success', 'Successfully joined the cafe!', [
@@ -63,16 +81,16 @@ export default function JoinCafeScreen() {
     }
   };
 
-  const renderHistoryItem = ({ item }: { item: any }) => (
+  const renderHistoryItem = ({ item }: { item: VisitedCafe }) => (
     <PremiumCard variant="secondary" style={styles.cafeCard}>
-      <TouchableOpacity style={styles.cafeInfo} onPress={() => handleJoinByCode(item.branchCode)}>
+      <TouchableOpacity style={styles.cafeInfo} onPress={() => handleJoinByCode(item.tenantSlug)}>
         <MaterialIcons name="business" size={24} color={themeColors.primary} />
         <View>
           <Text style={[styles.cafeName, { color: themeColors.text }]}>{item.tenantName}</Text>
           <Text style={[styles.cafeBranch, { color: themeColors.mutedText }]}>{item.branchName}</Text>
         </View>
       </TouchableOpacity>
-      <TouchableOpacity onPress={() => handleJoinByCode(item.branchCode)}>
+      <TouchableOpacity onPress={() => handleJoinByCode(item.tenantSlug)}>
         <MaterialIcons name="chevron-right" size={24} color={themeColors.mutedText} />
       </TouchableOpacity>
     </PremiumCard>
@@ -134,7 +152,7 @@ export default function JoinCafeScreen() {
             <FlatList
               data={history}
               renderItem={renderHistoryItem}
-              keyExtractor={(item, index) => item.id || (item.tenantId + (item.branchId || '') + index)}
+              keyExtractor={(item, index) => `${item.tenantSlug}-${item.branchCode}-${index}`}
               contentContainerStyle={{ gap: 16 }}
             />
           ) : (

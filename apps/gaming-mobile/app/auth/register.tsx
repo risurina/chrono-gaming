@@ -26,12 +26,13 @@ export default function RegisterScreen() {
 
     setLoading(true);
     try {
-      const result = await signUpWithEmail(name, email, password);
+      const { cookie } = await signUpWithEmail(name, email, password);
 
-      // Better Auth may return a session token on sign-up; if so, sign the user
-      // straight in. Otherwise send them to the login screen.
-      if (result?.token) {
-        await tokenStorage.saveToken(result.token);
+      // gaming-api signs the customer in on sign-up and returns the session
+      // cookie; persist it and continue to cafe-join. If the cookie is missing,
+      // fall back to the login screen.
+      if (cookie) {
+        await tokenStorage.saveToken(cookie);
         router.replace('/join');
         return;
       }

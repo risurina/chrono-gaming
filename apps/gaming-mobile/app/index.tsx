@@ -18,20 +18,20 @@ export default function WelcomeScreen() {
   useEffect(() => {
     const checkSession = async () => {
       try {
-        const token = await tokenStorage.getToken();
-        if (token) {
+        const cookie = await tokenStorage.getToken();
+        if (cookie) {
           try {
-            // Verify the token is still valid
+            // Verify the session cookie is still valid (`/auth/customer/me`).
             await apiService.auth.me();
-            // If we have a valid token, skip the welcome screen and go to the dashboard
+            // Valid session — skip the welcome screen and go to the dashboard.
             router.replace('/customer');
           } catch (error) {
-            // Token is likely invalid or expired, it will be cleared by the 401 interceptor
+            // Session is likely invalid or expired; it is cleared by the 401 interceptor.
             logger.info('Session invalid, staying on welcome screen');
           }
         }
       } catch (error) {
-        logger.error('Error checking Session:', error);
+        logger.error('Error checking session:', error);
       } finally {
         setIsInitializing(false);
       }
@@ -62,7 +62,7 @@ export default function WelcomeScreen() {
 
         <View style={styles.content}>
           <Text style={[styles.headline, { color: themeColors.text }]}>
-            Your gaming Session starts here.
+            Your gaming session starts here.
           </Text>
           <Text style={[styles.subheadline, { color: themeColors.mutedText }]}>
             Check your balance, track your time, and stay connected with your gaming cafe.

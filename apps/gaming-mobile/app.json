@@ -45,7 +45,8 @@
       "reactCompiler": false
     },
     "extra": {
-      "apiUrl": "https://chrono.api.izur.com.ph/api/v1"
+      "apiUrl": "http://api.localtest.me:8787",
+      "appDomain": "localtest.me:3000"
     }
   }
 }

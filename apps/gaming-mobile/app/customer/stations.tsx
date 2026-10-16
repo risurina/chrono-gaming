@@ -9,12 +9,12 @@ import { EmptyState } from '../../components/ui/EmptyState';
 import { ErrorBanner } from '../../components/ui/ErrorBanner';
 import { Colors } from '../../constants/theme';
 import { useApi } from '../../lib/ApiContext';
-import { ApiError } from '../../lib/mobile-api-client';
 import { tokenStorage } from '../../lib/token-storage';
 import { logger } from '../../lib/logger';
 import {
   PublicStation,
   StationAvailabilityResponse,
+  getAllStations,
 } from '../../constants/schemas/station';
 
 const REFRESH_INTERVAL_MS = 20_000;
@@ -31,19 +31,17 @@ export default function StationsScreen() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const load = useCallback(
-    async (tenantSlug: string) => {
-      try {
-        const availability = await api.stations.availability(tenantSlug);
-        setData(availability as StationAvailabilityResponse);
-        setError(null);
-      } catch (e: any) {
-        logger.error('Failed to load station availability:', e);
-        setError(e?.message || 'Failed to load live station availability.');
-      }
-    },
-    [api],
-  );
+  const load = useCallback(async () => {
+    try {
+      // Tenant is resolved server-side from the stored slug (x-tenant-slug).
+      const availability = await api.stations.availability();
+      setData(availability as StationAvailabilityResponse);
+      setError(null);
+    } catch (e: any) {
+      logger.error('Failed to load station availability:', e);
+      setError(e?.message || 'Failed to load live station availability.');
+    }
+  }, [api]);
 
   useEffect(() => {
     let mounted = true;
@@ -54,8 +52,8 @@ export default function StationsScreen() {
       if (!mounted) return;
       setSlug(tenantSlug);
       if (tenantSlug) {
-        await load(tenantSlug);
-        timer = setInterval(() => load(tenantSlug), REFRESH_INTERVAL_MS);
+        await load();
+        timer = setInterval(() => load(), REFRESH_INTERVAL_MS);
       }
       setLoading(false);
     })();
@@ -69,7 +67,7 @@ export default function StationsScreen() {
   const onRefresh = useCallback(async () => {
     if (!slug) return;
     setRefreshing(true);
-    await load(slug);
+    await load();
     setRefreshing(false);
   }, [slug, load]);
 
@@ -77,31 +75,22 @@ export default function StationsScreen() {
     if (!reserveTarget) return;
     setSubmitting(true);
     try {
-      await api.reservations.create({ stationId: reserveTarget.id, durationMinutes });
+      // gaming-api requires a start time. The UI has no slot picker, so reserve
+      // for immediate ("now") start; the server rejects a slot it cannot honor.
+      await api.reservations.create({
+        stationId: reserveTarget.id,
+        startAt: new Date().toISOString(),
+        durationMinutes,
+      });
       setReserveTarget(null);
       Alert.alert('Reserved', 'Your station has been reserved.', [
         { text: 'View Reservations', onPress: () => router.push('/customer/reservations') },
         { text: 'OK', style: 'cancel' },
       ]);
-      if (slug) await load(slug);
+      if (slug) await load();
     } catch (e: any) {
-      // Surface high-value envelope error codes with actionable guidance.
-      if (e instanceof ApiError && e.code === 'INSUFFICIENT_BALANCE') {
-        Alert.alert(
-          'Top-up needed',
-          'You need time credits or wallet balance to reserve a station. Please top up at the counter first.',
-        );
-      } else if (e instanceof ApiError && e.code === 'RESERVATIONS_PAUSED') {
-        const reopensAt = e.details?.reopensAt;
-        Alert.alert(
-          'Reservations paused',
-          reopensAt
-            ? `Reservations are paused until ${new Date(reopensAt).toLocaleString()}. Please try again after that.`
-            : 'Reservations are paused right now. Please try again later.',
-        );
-      } else {
-        Alert.alert('Could not reserve', e.message || 'Failed to reserve this station.');
-      }
+      // gaming-api returns a plain `{ error: "message" }` string — surface it.
+      Alert.alert('Could not reserve', e?.message || 'Failed to reserve this station.');
     } finally {
       setSubmitting(false);
     }
@@ -121,7 +110,7 @@ export default function StationsScreen() {
       <MobileScreen>
         <ScreenHeader title="Live Stations" showBack />
         <View style={styles.container}>
-          <ErrorBanner message={error} onRetry={() => load(slug)} />
+          <ErrorBanner message={error} onRetry={() => load()} />
         </View>
       </MobileScreen>
     );
@@ -147,10 +136,11 @@ export default function StationsScreen() {
       <ScreenHeader title="Live Stations" showBack />
 
       <View style={styles.container}>
-        {error && <ErrorBanner message={error} onRetry={() => load(slug)} />}
+        {error && <ErrorBanner message={error} onRetry={() => load()} />}
         <View style={styles.summary}>
           <Text style={[styles.summaryText, { color: themeColors.mutedText }]}>
-            {data.summary.available} available · {data.summary.inUse} in use · {data.summary.reserved} reserved
+            {data.aggregate.available} available · {data.aggregate.occupied} in use ·{' '}
+            {data.aggregate.unavailable} unavailable
           </Text>
           <View style={styles.links}>
             <TouchableOpacity onPress={() => router.push('/customer/reservations')}>
@@ -163,7 +153,7 @@ export default function StationsScreen() {
         </View>
 
         <View style={styles.grid}>
-          {data.stations.map((station) => (
+          {getAllStations(data).map((station) => (
             <StationTile key={station.id} station={station} onReserve={setReserveTarget} />
           ))}
         </View>

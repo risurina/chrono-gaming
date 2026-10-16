@@ -164,6 +164,64 @@ export type ReservationAvailabilityQuery = z.infer<typeof reservationAvailabilit
 export type ReservationAvailabilitySlot = z.infer<typeof reservationAvailabilitySlotSchema>;
 export type ReservationAvailabilityResponse = z.infer<typeof reservationAvailabilityResponseSchema>;
 
+// --- Member-portal reservation history (member-portal-v2) ------------------
+// A member's own paginated reservation list, mirroring the session portal list
+// (`session/contracts.ts`'s `portalSessionListQuerySchema`/
+// `toPortalSessionSummary`). Sortable by the reservation's own time columns;
+// the route itself always orders newest-first by `createdAt` (see
+// `portal-routes.ts`).
+
+export const portalReservationListQuerySchema = listQuerySchema(["startAt", "createdAt"]);
+
+/**
+ * Member-facing reservation summary — an explicit ALLOWLIST (`.ai/rules/dto.md`),
+ * never a raw row: no `tenantId`/`memberId`/`customerName`/`customerPhone`/
+ * `createdByUserId`/`notes` leak. Dates cross the wire as ISO strings and the
+ * `cancelledLateFeeAmount` decimal as a string, like every other money field.
+ */
+export const portalReservationSummarySchema = z.object({
+  id: z.string(),
+  stationId: z.string(),
+  branchId: z.string(),
+  status: reservationStatusSchema,
+  startAt: z.string().nullable(),
+  endAt: z.string().nullable(),
+  requestedDurationMinutes: z.number().int().nullable(),
+  fromQueue: z.boolean(),
+  cancelledLateFeeAmount: z.string().nullable(),
+  createdAt: z.string(),
+});
+
+export type PortalReservationSummary = z.infer<typeof portalReservationSummarySchema>;
+
+type PortalReservationRow = {
+  id: string;
+  stationId: string;
+  branchId: string;
+  status: string;
+  startAt: Date | null;
+  endAt: Date | null;
+  requestedDurationMinutes: number | null;
+  fromQueue: boolean;
+  cancelledLateFeeAmount: string | null;
+  createdAt: Date;
+};
+
+export function toPortalReservationSummary(row: PortalReservationRow): PortalReservationSummary {
+  return {
+    id: row.id,
+    stationId: row.stationId,
+    branchId: row.branchId,
+    status: row.status as ReservationStatus,
+    startAt: row.startAt ? row.startAt.toISOString() : null,
+    endAt: row.endAt ? row.endAt.toISOString() : null,
+    requestedDurationMinutes: row.requestedDurationMinutes,
+    fromQueue: row.fromQueue,
+    cancelledLateFeeAmount: row.cancelledLateFeeAmount,
+    createdAt: row.createdAt.toISOString(),
+  };
+}
+
 export type CreateReservationInput = z.infer<typeof createReservationSchema>;
 export type UpdateReservationInput = z.infer<typeof updateReservationSchema>;
 export type CancelReservationInput = z.infer<typeof cancelReservationSchema>;

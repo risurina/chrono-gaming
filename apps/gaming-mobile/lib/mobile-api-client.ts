@@ -1,86 +1,93 @@
 import Constants from 'expo-constants';
 import { router } from 'expo-router';
 import { tokenStorage } from './token-storage';
+import { logger } from './logger';
 
-const DEFAULT_API_URL = 'https://chrono.api.izur.com.ph/api/v1';
-// Root domain used to derive the tenant hostname sent via `x-oikos-hostname`.
-// Must equal chrono-api's ROOT_DOMAIN (default: chrono.izur.com.ph) so
-// tenantContextMiddleware resolves the tenant slug from the leading label.
-const DEFAULT_TENANT_ROOT_DOMAIN = 'chrono.izur.com.ph';
+const DEFAULT_API_URL = 'http://api.localtest.me:8787';
 
 const API_BASE_URL =
   process.env.EXPO_PUBLIC_API_URL ||
   Constants.expoConfig?.extra?.apiUrl ||
   DEFAULT_API_URL;
 
-const TENANT_ROOT_DOMAIN =
-  process.env.EXPO_PUBLIC_TENANT_ROOT_DOMAIN ||
-  Constants.expoConfig?.extra?.tenantRootDomain ||
-  DEFAULT_TENANT_ROOT_DOMAIN;
-
-// Surface configuration drift early: falling back to hardcoded defaults is the
-// usual cause of "tenant not resolved" bugs against non-production APIs.
+// Surface configuration drift early: falling back to the hardcoded default is the
+// usual cause of "tenant not resolved" / wrong-host bugs against non-local APIs.
 if (!process.env.EXPO_PUBLIC_API_URL && !Constants.expoConfig?.extra?.apiUrl) {
   console.warn(
     `[mobile-api-client] EXPO_PUBLIC_API_URL is not set; falling back to default API URL ${DEFAULT_API_URL}`,
   );
 }
-if (!process.env.EXPO_PUBLIC_TENANT_ROOT_DOMAIN && !Constants.expoConfig?.extra?.tenantRootDomain) {
-  console.warn(
-    `[mobile-api-client] EXPO_PUBLIC_TENANT_ROOT_DOMAIN is not set; falling back to default root domain ${DEFAULT_TENANT_ROOT_DOMAIN} (must match chrono-api ROOT_DOMAIN)`,
-  );
-}
 
 /**
- * Error thrown for failed API calls. Preserves the machine-readable envelope
- * error code and details so screens can branch on specific failures
- * (e.g. INSUFFICIENT_BALANCE, RESERVATIONS_PAUSED with `details.reopensAt`).
+ * Error thrown for failed API calls. gaming-api returns bare-JSON errors as
+ * `{ error: "message" }` (a plain string) with no machine-readable code or
+ * details, so `code` is synthesised from the HTTP status (`HTTP_<status>`).
  */
 export class ApiError extends Error {
   code: string;
   status: number;
-  details?: Record<string, any>;
 
-  constructor(message: string, code: string, status: number, details?: Record<string, any>) {
+  constructor(message: string, code: string, status: number) {
     super(message);
     this.name = 'ApiError';
     this.code = code;
     this.status = status;
-    this.details = details;
   }
 }
 
 /**
- * Build the tenant hostname the API uses to resolve tenant context. The API
- * reads `x-oikos-hostname` (its trusted tenant-injection header) and parses the
- * leading label as the tenant slug. Member routes are user-scoped, so this only
- * selects which tenant's own data the authenticated user sees.
+ * Pull the `agora_customer` session cookie out of a `Set-Cookie` response
+ * header and return the bare `name=value` pair to replay as a `Cookie` header.
+ * RN concatenates multiple Set-Cookie values into one string, so a targeted
+ * match is used rather than splitting on commas (which appear inside `Expires`).
  */
-function tenantHostname(tenantSlug: string): string {
-  return `${tenantSlug}.${TENANT_ROOT_DOMAIN}`;
+function extractSessionCookie(setCookie: string | null): string | null {
+  if (!setCookie) return null;
+  const match = setCookie.match(/agora_customer=[^;]+/);
+  return match ? match[0] : null;
 }
 
-async function buildHeaders(extra?: HeadersInit, includeTenantHost = true): Promise<Headers> {
-  const headers = new Headers({ 'Content-Type': 'application/json' });
-  const token = await tokenStorage.getToken();
-
-  if (token) headers.set('Authorization', `Bearer ${token}`);
-  if (includeTenantHost) {
-    const tenantSlug = await tokenStorage.getTenantSlug();
-    if (tenantSlug) headers.set('x-oikos-hostname', tenantHostname(tenantSlug));
+/**
+ * Persist the session cookie from an auth/portal response when present. gaming-api
+ * uses a cookie session (`agora_customer`); native cookie jars are an unreliable
+ * fallback on RN, so we capture and replay the cookie header ourselves.
+ */
+async function captureSessionCookie(response: Response): Promise<void> {
+  const cookie = extractSessionCookie(response.headers.get('set-cookie'));
+  if (!cookie) return;
+  try {
+    await tokenStorage.saveToken(cookie);
+  } catch (error) {
+    logger.error('Failed to persist session cookie:', error);
   }
+}
+
+async function buildHeaders(
+  endpoint: string,
+  method: string,
+  extra?: HeadersInit,
+): Promise<Headers> {
+  const headers = new Headers({ 'Content-Type': 'application/json' });
+
+  const [cookie, tenantSlug] = await Promise.all([
+    tokenStorage.getToken(),
+    tokenStorage.getTenantSlug(),
+  ]);
+
+  if (cookie) headers.set('Cookie', cookie);
+  if (tenantSlug) headers.set('x-tenant-slug', tenantSlug);
+
+  // CSRF-preflight header required by gaming-api on mutating member routes.
+  // `/portal/reservations/*` mutations are exempt; `/public/qr/consume` requires it.
+  const isMutation = method !== 'GET' && method !== 'HEAD';
+  const needsMemberAction =
+    isMutation &&
+    ((endpoint.startsWith('/portal/') && !endpoint.startsWith('/portal/reservations')) ||
+      endpoint.startsWith('/public/qr/consume'));
+  if (needsMemberAction) headers.set('x-member-action', '1');
+
   if (extra) new Headers(extra).forEach((value, key) => headers.set(key, value));
   return headers;
-}
-
-export interface MobileFetchOptions {
-  /**
-   * Whether to send the tenant-resolution header (`x-oikos-hostname`).
-   * Defaults to true. Set false for user-scoped, tenant-agnostic customer
-   * endpoints that use strict `requireAuth` (e.g. join/history/profile), which
-   * 403 a membership-less customer once a tenant is resolved from the host.
-   */
-  includeTenantHost?: boolean;
 }
 
 async function handleUnauthorized() {
@@ -93,29 +100,32 @@ async function handleUnauthorized() {
 }
 
 function toApiError(json: any, status: number, fallbackMessage: string): ApiError {
-  const envelopeError = json?.error && typeof json.error === 'object' ? json.error : undefined;
   const message =
-    envelopeError?.message ||
     (typeof json?.error === 'string' ? json.error : undefined) ||
-    json?.message ||
+    (typeof json?.message === 'string' ? json.message : undefined) ||
     fallbackMessage;
-  const code = envelopeError?.code || `HTTP_${status}`;
-  return new ApiError(message, code, status, envelopeError?.details);
+  return new ApiError(message, `HTTP_${status}`, status);
 }
 
 /**
- * Authenticated/tenant-aware fetch for the Chrono member API. Unwraps the
- * `{ success, data }` envelope and returns `data`. Throws `ApiError` (with
- * `code`, `status`, and `details`) for non-2xx responses AND for 2xx responses
- * whose envelope reports `success: false`.
+ * Authenticated/tenant-aware fetch for the gaming-api customer surface. Sends the
+ * cookie session (`Cookie: agora_customer=...`) + `x-tenant-slug`, captures any
+ * refreshed session cookie, and returns the BARE JSON body (gaming-api has no
+ * `{ success, data }` envelope). Throws `ApiError` for non-2xx responses.
  */
 export async function mobileApiFetch<T>(
   endpoint: string,
   options: RequestInit = {},
-  fetchOptions: MobileFetchOptions = {},
 ): Promise<T> {
-  const headers = await buildHeaders(options.headers, fetchOptions.includeTenantHost ?? true);
-  const response = await fetch(`${API_BASE_URL}${endpoint}`, { ...options, headers });
+  const method = (options.method ?? 'GET').toUpperCase();
+  const headers = await buildHeaders(endpoint, method, options.headers);
+  const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+    ...options,
+    headers,
+    credentials: 'include',
+  });
+
+  await captureSessionCookie(response);
 
   if (!response.ok) {
     if (response.status === 401) {
@@ -125,63 +135,63 @@ export async function mobileApiFetch<T>(
     throw toApiError(errorData, response.status, 'API request failed');
   }
 
-  const json = await response.json().catch(() => null);
-  // A 2xx with an explicit `success: false` envelope is still a failure.
-  if (json && json.success === false) {
-    throw toApiError(json, response.status, 'API request failed');
-  }
-  return json?.data as T;
+  return (await response.json().catch(() => null)) as T;
 }
 
-export interface SignInResult {
-  token: string;
-  user: { id: string; email: string; name?: string | null };
+/** The global-customer identity returned by `/auth/customer/*`. */
+export interface CustomerIdentity {
+  id: string;
+  email: string;
+  name: string | null;
+  hasPassword?: boolean;
+}
+
+export interface AuthResult {
+  cookie: string | null;
+  customer: CustomerIdentity;
 }
 
 /**
- * Sign in against Better Auth (email/password). With the bearer plugin enabled
- * on the API, the session token is returned in the `set-auth-token` response
- * header; we fall back to the response body's `token` if present.
+ * Sign in as a global customer (cookie session). On success gaming-api sets the
+ * `agora_customer` cookie via `Set-Cookie`; we return the extracted cookie so the
+ * caller can persist it (and gate navigation on a successful save).
  */
-export async function signInWithEmail(email: string, password: string): Promise<SignInResult> {
-  const response = await fetch(`${API_BASE_URL}/sign-in/email`, {
+export async function signInWithEmail(email: string, password: string): Promise<AuthResult> {
+  const response = await fetch(`${API_BASE_URL}/auth/customer/sign-in`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ email, password }),
+    credentials: 'include',
   });
 
   const json = await response.json().catch(() => ({} as any));
   if (!response.ok) {
-    throw new Error(json.error?.message || json.message || 'Invalid credentials');
+    throw new Error(typeof json.error === 'string' ? json.error : json.message || 'Invalid credentials');
   }
 
-  const token = response.headers.get('set-auth-token') || json.token;
-  if (!token) {
-    throw new Error('Sign-in did not return an auth token');
-  }
-
-  return { token, user: json.user };
+  return { cookie: extractSessionCookie(response.headers.get('set-cookie')), customer: json.customer };
 }
 
 /**
- * Register a new customer account via Better Auth email/password sign-up.
+ * Register a new global customer (cookie session). gaming-api signs the customer
+ * straight in and returns the `agora_customer` cookie via `Set-Cookie`.
  */
 export async function signUpWithEmail(
   name: string,
   email: string,
   password: string,
-): Promise<SignInResult | null> {
-  const response = await fetch(`${API_BASE_URL}/sign-up/email`, {
+): Promise<AuthResult> {
+  const response = await fetch(`${API_BASE_URL}/auth/customer/sign-up`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ name, email, password }),
+    credentials: 'include',
   });
 
   const json = await response.json().catch(() => ({} as any));
   if (!response.ok) {
-    throw new Error(json.error?.message || json.message || 'Registration failed');
+    throw new Error(typeof json.error === 'string' ? json.error : json.message || 'Registration failed');
   }
 
-  const token = response.headers.get('set-auth-token') || json.token;
-  return token ? { token, user: json.user } : null;
+  return { cookie: extractSessionCookie(response.headers.get('set-cookie')), customer: json.customer };
 }

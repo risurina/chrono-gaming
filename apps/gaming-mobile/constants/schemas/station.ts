@@ -1,49 +1,57 @@
-export type StationStatus = 'available' | 'inUse' | 'reserved' | 'maintenance' | 'locked' | 'offline';
+export type StationStatus = 'available' | 'occupied' | 'maintenance' | 'offline';
 
+/**
+ * A station as returned by gaming-api `GET /public/stations` (grouped under its
+ * branch). The public contract is deliberately thin — no rate/queue data.
+ */
 export interface PublicStation {
   id: string;
-  stationCode: string;
+  name: string;
+  stationNumber: string;
+  stationType: string;
   status: StationStatus;
-  connectivityStatus?: 'ONLINE' | 'OFFLINE' | 'SLEEP' | 'CONNECTING' | 'UNSTABLE' | null;
-  branchName?: string;
-  branchCode?: string;
-  specs?: {
-    cpu?: string;
-    gpu?: string;
-    ram?: string;
-    monitorHz?: number;
-  };
-  updatedAt: string;
-  scheduledEndAt?: string | null;
-  currentSessionLabel?: string | null;
-  hourlyRate?: number | null;
-  currency?: string;
-  reservationStatus?: 'held' | 'queued' | null;
-  queueLength?: number;
 }
 
-export interface StationAvailabilitySummary {
+export interface StationAggregate {
+  total: number;
   available: number;
   inUse: number;
-  reserved: number;
-  maintenance: number;
-  offline?: number;
+  occupied: number;
+  unavailable: number;
 }
 
-export interface StationAvailabilityResponse {
-  summary: StationAvailabilitySummary;
+export interface BranchStations {
+  id: string;
+  name: string;
+  code: string;
+  aggregate: StationAggregate;
   stations: PublicStation[];
-  updatedAt: string;
+}
+
+/**
+ * `GET /public/stations` response — a top-level aggregate plus per-branch groups.
+ */
+export interface StationAvailabilityResponse {
+  aggregate: StationAggregate;
+  branches: BranchStations[];
 }
 
 export const STATION_STATUS_LABELS: Record<StationStatus, string> = {
   available: 'Available',
-  inUse: 'In Use',
-  reserved: 'Reserved',
+  occupied: 'In Use',
   maintenance: 'Maintenance',
-  locked: 'Locked',
   offline: 'Offline',
 };
+
+/** Flatten every branch's stations into a single list for grid rendering. */
+export function getAllStations(res: StationAvailabilityResponse): PublicStation[] {
+  return res.branches.flatMap((b) => b.stations);
+}
+
+/** Display label for a station — its name, falling back to its number. */
+export function stationLabel(station: PublicStation): string {
+  return station.name || `#${station.stationNumber}`;
+}
 
 /** A station a member can reserve right now. */
 export function isStationReservable(station: PublicStation): boolean {

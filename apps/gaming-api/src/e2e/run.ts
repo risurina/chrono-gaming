@@ -711,6 +711,68 @@ async function main() {
       JSON.stringify(sumAfter.body),
     );
 
+    // Reservation history — seed one direct reservation for this member on the
+    // already-seeded branch+station, then prove the member-portal history list
+    // (happy path + foreign-member + cross-tenant isolation), mirroring the
+    // GET /portal/sessions + /portal/sessions/:id isolation trio above.
+    const { chronoReservation } = await import("../modules/reservation/schema");
+    const resHistEmpty = await req("GET", "/portal/reservations/history", { slug: "acme", cookie: memberCk });
+    check(
+      "reservations/history: empty for a member with no reservations",
+      resHistEmpty.status === 200 && resHistEmpty.body?.items?.length === 0 && resHistEmpty.body?.meta?.totalItems === 0,
+      JSON.stringify(resHistEmpty.body),
+    );
+    const resStart = new Date();
+    const [seededReservation] = await withTenant(acmeId, (tx) =>
+      tx
+        .insert(chronoReservation)
+        .values({
+          id: createId(),
+          tenantId: acmeId,
+          branchId: branch!.id,
+          stationId: station!.id,
+          memberId,
+          status: "confirmed",
+          startAt: resStart,
+          endAt: new Date(resStart.getTime() + 3600_000),
+          requestedDurationMinutes: 60,
+          fromQueue: false,
+        })
+        .returning(),
+    );
+    const resHistory = await req("GET", "/portal/reservations/history", { slug: "acme", cookie: memberCk });
+    check(
+      "reservations/history: newest-first, includes the member's reservation",
+      resHistory.status === 200 &&
+        resHistory.body?.items?.[0]?.id === seededReservation!.id &&
+        resHistory.body?.items?.[0]?.branchId === branch!.id &&
+        resHistory.body?.items?.[0]?.stationId === station!.id &&
+        resHistory.body?.meta?.totalItems === 1,
+      JSON.stringify(resHistory.body),
+    );
+    check(
+      "reservations/history: DTO is allowlisted (no tenantId/memberId/createdByUserId leak)",
+      !!resHistory.body?.items?.[0] &&
+        !("tenantId" in resHistory.body.items[0]) &&
+        !("memberId" in resHistory.body.items[0]) &&
+        !("createdByUserId" in resHistory.body.items[0]) &&
+        !("customerPhone" in resHistory.body.items[0]),
+      JSON.stringify(resHistory.body?.items?.[0]),
+    );
+    const resHistoryForeign = await req("GET", "/portal/reservations/history", { slug: "acme", cookie: custCk });
+    check(
+      "reservations/history: a foreign member sees none of this member's reservations",
+      resHistoryForeign.status === 200 &&
+        !(resHistoryForeign.body?.items ?? []).some((r: { id: string }) => r.id === seededReservation!.id),
+      JSON.stringify(resHistoryForeign.body),
+    );
+    const resHistoryCross = await req("GET", "/portal/reservations/history", { slug: "contoso", cookie: memberCk });
+    check(
+      "reservations/history: cross-tenant session rejected (401)",
+      resHistoryCross.status === 401,
+      `status ${resHistoryCross.status}`,
+    );
+
     // Credit catalog + wallet-funded purchase.
     const [draftProduct] = await withTenant(acmeId, (tx) =>
       tx
@@ -823,6 +885,120 @@ async function main() {
       "promos: contoso member never sees acme's promo",
       promosCross.status === 200 && !promosCross.body?.items?.some((p: { code: string }) => p.code === "HAPPY10"),
       JSON.stringify(promosCross.body),
+    );
+  }
+
+  // ── Chrono "My Cafés" for a global customer (GET /portal/customer/cafes) ──
+  // A signed-in global customer sees, per tenant it has an active tenantMember
+  // in, that tenant's own active branches — and NEVER a tenant it has not
+  // joined. Mirrors the global-customer apply flow (insert a customerSession,
+  // POST /portal/customer/apply) and the cross-tenant isolation posture.
+  {
+    const { hashMemberPassword } = await import("agora/member-auth");
+    const { chronoBranch } = await import("../modules/branch/schema");
+
+    // A fresh global customer with an active session.
+    const cafesGcEmail = `cafes-gc-${createId()}@example.com`;
+    const [cafesGc] = await adminDb
+      .insert(schema.customer)
+      .values({
+        email: cafesGcEmail,
+        name: "Cafes Global Customer",
+        passwordHash: await hashMemberPassword(PW),
+      })
+      .returning({ id: schema.customer.id });
+    const cafesToken = `cafes-gc-session-${createId()}`;
+    await adminDb.insert(schema.customerSession).values({
+      customerId: cafesGc!.id,
+      tokenHash: createHash("sha256").update(cafesToken).digest("hex"),
+      expiresAt: new Date(Date.now() + 1000 * 60 * 60 * 24 * 30),
+    });
+    const cafesCookie = `agora_customer=${cafesToken}`;
+
+    // One active + one disabled branch on acme (the tenant the customer joins).
+    const [acmeActiveBranch] = await withTenant(acmeId, (tx) =>
+      tx
+        .insert(chronoBranch)
+        .values({ id: createId(), tenantId: acmeId, name: "Cafe Active", code: "CAFE-ACTIVE", status: "active" })
+        .returning(),
+    );
+    await withTenant(acmeId, (tx) =>
+      tx
+        .insert(chronoBranch)
+        .values({ id: createId(), tenantId: acmeId, name: "Cafe Disabled", code: "CAFE-DISABLED", status: "disabled" })
+        .returning(),
+    );
+    // A SECOND tenant with its own ACTIVE branch that the customer never joins —
+    // the cross-tenant isolation probe. A dedicated org (not acme/contoso) so
+    // this active branch can never pollute another test's "oldest active branch"
+    // read (e.g. GET /public/venue-info), while still proving an active branch
+    // in an un-joined tenant is fully excluded (not merely status-filtered).
+    const cafesOtherId = await ensureOrg(`cafes-other-${createId()}`, "Cafes Other Co");
+    await withTenant(cafesOtherId, (tx) =>
+      tx
+        .insert(chronoBranch)
+        .values({ id: createId(), tenantId: cafesOtherId, name: "Other Cafe", code: "CAFE-OTHER", status: "active" })
+        .returning(),
+    );
+
+    const cafesNoAuth = await req("GET", "/portal/customer/cafes", {});
+    check(
+      "customer cafes: requires a global-customer session (401)",
+      cafesNoAuth.status === 401,
+      `status ${cafesNoAuth.status}`,
+    );
+
+    // Before applying, the customer belongs to no tenant → no cafés.
+    const cafesBeforeApply = await req("GET", "/portal/customer/cafes", { cookie: cafesCookie });
+    check(
+      "customer cafes: empty before the customer joins any tenant",
+      cafesBeforeApply.status === 200 && (cafesBeforeApply.body?.cafes ?? []).length === 0,
+      JSON.stringify(cafesBeforeApply.body),
+    );
+
+    // Join acme (existing self-service flow) — grants an active tenantMember.
+    const cafesApply = await req("POST", "/portal/customer/apply", { cookie: cafesCookie, slug: "acme" });
+    check(
+      "customer cafes: global customer applies to acme (201)",
+      cafesApply.status === 201,
+      `status ${cafesApply.status} ${JSON.stringify(cafesApply.body)}`,
+    );
+
+    const cafesRes = await req("GET", "/portal/customer/cafes", { cookie: cafesCookie });
+    check(
+      "customer cafes: returns only the tenant the customer joined (acme)",
+      cafesRes.status === 200 &&
+        Array.isArray(cafesRes.body?.cafes) &&
+        cafesRes.body.cafes.length === 1 &&
+        cafesRes.body.cafes[0]?.tenantId === acmeId &&
+        cafesRes.body.cafes[0]?.tenantSlug === "acme" &&
+        typeof cafesRes.body.cafes[0]?.tenantName === "string",
+      JSON.stringify(cafesRes.body),
+    );
+    const acmeCafe = (cafesRes.body?.cafes ?? []).find((c: { tenantId: string }) => c.tenantId === acmeId);
+    const acmeCafeBranch = (acmeCafe?.branches ?? []).find(
+      (b: { branchId: string }) => b.branchId === acmeActiveBranch!.id,
+    );
+    check(
+      "customer cafes: acme cafe includes the seeded active branch with the allowlist shape",
+      !!acmeCafeBranch &&
+        acmeCafeBranch.branchCode === "CAFE-ACTIVE" &&
+        acmeCafeBranch.branchName === "Cafe Active",
+      JSON.stringify(acmeCafe),
+    );
+    const acmeBranchCodes: string[] = (acmeCafe?.branches ?? []).map((b: { branchCode: string }) => b.branchCode);
+    check(
+      "customer cafes: disabled branches are excluded",
+      !acmeBranchCodes.includes("CAFE-DISABLED"),
+      JSON.stringify(acmeCafe),
+    );
+    check(
+      "customer cafes: never exposes a tenant the customer has not joined (active branch excluded)",
+      !(cafesRes.body?.cafes ?? []).some((c: { tenantId: string }) => c.tenantId === cafesOtherId) &&
+        !(cafesRes.body?.cafes ?? []).some((c: { branches: { branchCode: string }[] }) =>
+          (c.branches ?? []).some((b) => b.branchCode === "CAFE-OTHER"),
+        ),
+      JSON.stringify(cafesRes.body),
     );
   }
 

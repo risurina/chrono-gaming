@@ -11,35 +11,32 @@ export interface SessionHistoryItem {
 }
 
 /**
- * Map a raw member session (`GET /member/sessions`) to the history UI shape.
- * The endpoint is not branch-scoped, so branch name is not available; the
- * station name headlines the row and the session mode is shown as detail.
- *
- * The API session status enum is ACTIVE | PAUSED | ENDED | AWAY_LOCKED:
- * ENDED sessions are finished ("completed"); everything else is still in
- * progress ("ongoing").
+ * Map a raw member session summary (`GET /portal/sessions/`) to the history UI
+ * shape. The summary is tenant-scoped (not branch-scoped), so the station name
+ * headlines the row. gaming-api session status is `active | paused | ended`:
+ * `ended` sessions are finished ("completed"); everything else is in progress
+ * ("ongoing").
  *
  * NOTE: `RawMemberSession` is a hand-written interface with no runtime
  * validation, so it can silently drift from the API serializer.
  *
- * Money: `cost` is a hard-coded placeholder (0) — this endpoint does not return
- * a session cost yet, so no float arithmetic is performed on money here. When
- * the API begins returning a cost, keep it as the server's decimal string and
- * avoid float math (see `normalizeTransaction` in `wallet.ts`).
+ * Money: `amountCharged` is the server's decimal string (null for an unbilled,
+ * still-running session). It is coerced to a number only at this display
+ * boundary.
  */
 export function normalizeMemberSession(raw: RawMemberSession): SessionHistoryItem {
-  const durationMinutes = raw.actualDurationSeconds
-    ? Math.round(raw.actualDurationSeconds / 60)
+  const durationMinutes = raw.actualBillableSeconds
+    ? Math.round(raw.actualBillableSeconds / 60)
     : 0;
-  const status: SessionHistoryItem['status'] = raw.status === 'ENDED' ? 'completed' : 'ongoing';
+  const status: SessionHistoryItem['status'] = raw.status === 'ended' ? 'completed' : 'ongoing';
 
   return {
     id: raw.id,
-    date: raw.startedAt || raw.createdAt,
+    date: raw.startedAt,
     branchName: raw.stationName || 'Session',
-    stationName: raw.mode || '',
+    stationName: '',
     durationMinutes,
-    cost: 0,
+    cost: Number(raw.amountCharged ?? 0) || 0,
     status,
   };
 }

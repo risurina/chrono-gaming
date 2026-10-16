@@ -47,7 +47,7 @@ export function useCustomerData() {
         setWallet({
           balance: Number(walletBalance.value.balance) || 0,
           currency: walletBalance.value.currency,
-          status: walletBalance.value.status,
+          exists: walletBalance.value.exists,
           recentTransactions: transactions,
         });
       }

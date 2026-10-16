@@ -44,11 +44,17 @@ config.resolver.disableHierarchicalLookup = false;
 config.resolver.unstable_enablePackageExports = true;
 config.resolver.unstable_enableSymlinks = true;
 
-// 5. Block huge irrelevant folders to speed up resolution
-// Using a more surgical regex that works on both macOS and Windows
+// 5. Block huge irrelevant folders to speed up resolution and keep Metro's
+// crawl of the monorepo (watchFolders = workspaceRoot) tractable.
+// Using surgical regexes that work on both macOS and Windows.
 config.resolver.blockList = [
-  /.*[/\\]apps[/\\](?!mobile[/\\]).+[/\\]node_modules[/\\](?!\.pnpm[/\\]).*/,
-  /.*[/\\]apps[/\\]web[/\\]\.next[/\\]/,
+  // Sibling apps' node_modules (never this app's own `gaming-mobile`).
+  /.*[/\\]apps[/\\](?!gaming-mobile[/\\]).+[/\\]node_modules[/\\](?!\.pnpm[/\\]).*/,
+  /.*[/\\]apps[/\\]gaming-web[/\\]\.next[/\\]/,
+  // The agora foundation is a backend-only git submodule (an entire nested
+  // monorepo). This RN app imports nothing from it, so exclude it wholesale —
+  // otherwise Metro crawls the whole submodule and hangs/OOMs on startup.
+  /[/\\]packages[/\\]agora[/\\].*/,
   /[/\\]\.(next|turbo|vercel)[/\\]/,
 ];
 
