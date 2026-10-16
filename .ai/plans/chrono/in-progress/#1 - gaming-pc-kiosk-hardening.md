@@ -3,9 +3,12 @@
 **Sessions:**
 - Planning: Claude Code (main session)
 - Audit: _(unclaimed)_
-- Implementation: _(unclaimed)_
+- Implementation: Claude Code (main session, worktree `worktree-gaming-pc-hardening`)
 
-**Status:** DRAFT — awaiting developer acceptance. No phase started.
+**Status:** IN PROGRESS — accepted. Phase 1 underway.
+- Phase 1 (quick wins): env-var lockdown bypass fixed (machine-only `kiosk_env`); SCM
+  `sdset`/`failureflag` + PIN salt/relocation + HKLM policies + `/ping` cap pending.
+- Correction: the recovery-PIN code is `src-tauri/src/recovery.rs` (not `guard/src/recovery.rs`).
 
 ## What this is
 

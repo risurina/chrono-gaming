@@ -48,21 +48,6 @@ fn kiosk_policy_hash(kp: &KioskPolicy) -> u64 {
     hasher.finish()
 }
 
-fn is_dev() -> bool {
-    cfg!(debug_assertions) || std::env::var("NODE_ENV").as_deref() == Ok("development")
-}
-
-/// `KIOSK_LOCKDOWN_ENABLED`: prod defaults ON (opt out with `=false`),
-/// dev defaults OFF (opt in with `=true`).
-fn lockdown_enabled() -> bool {
-    let v = std::env::var("KIOSK_LOCKDOWN_ENABLED").ok();
-    if is_dev() {
-        v.as_deref() == Some("true")
-    } else {
-        v.as_deref() != Some("false")
-    }
-}
-
 /// Build the hidden `widget` webview if it does not already exist. Called both
 /// at boot (to pre-warm the webview so the active-session shell shows instantly)
 /// and lazily from the ACTIVE/LOW_TIME arm as a fallback.
@@ -172,7 +157,7 @@ pub fn update_kiosk_state(app: &AppHandle, state: &Value) {
             }
             let _ = main.show();
             let _ = main.set_fullscreen(true);
-            if !is_dev() && lockdown_enabled() {
+            if crate::kiosk_env::lockdown_active() {
                 let _ = main.set_always_on_top(true);
                 crate::shortcuts::set_trapping(app, true);
                 policy::apply(&kp);
