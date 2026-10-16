@@ -2,7 +2,7 @@ import React from 'react';
 import { SessionViewModel } from '../../types/pc-client';
 import { ScreenLayout } from '../ui/ScreenLayout';
 import { Sparkles } from 'lucide-react';
-import { Button } from '@risurina/oikos/ui';
+import { Button } from '@/ui-kit';
 import { runtime } from '../../features/runtime/pc-client-runtime';
 import { useUiConfig } from '../../contexts/UiConfigContext';
 

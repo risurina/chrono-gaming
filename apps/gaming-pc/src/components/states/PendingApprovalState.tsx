@@ -1,6 +1,6 @@
 import React from 'react';
 import { ScreenLayout } from '../ui/ScreenLayout';
-import { Button, Card, CardContent, CardDescription, CardHeader, CardTitle, cn } from '@risurina/oikos/ui';
+import { Button, Card, CardContent, CardDescription, CardHeader, CardTitle, cn } from '@/ui-kit';
 import { Hourglass } from 'lucide-react';
 import { ChronoSpinner } from '../ui/ChronoSpinner';
 

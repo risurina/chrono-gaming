@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react';
 
-import { Button } from '@risurina/oikos/ui';
+import { Button } from '@/ui-kit';
 
 export interface ToastMessage {
   id: string;

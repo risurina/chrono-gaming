@@ -1,6 +1,6 @@
 import React from 'react';
 import { Gamepad2 } from 'lucide-react';
-import { Box, Flex, Text, cn, ui } from '@risurina/oikos/ui';
+import { Box, Flex, Text, cn, ui } from '@/ui-kit';
 
 interface ActiveSessionShellProps {
   /** Right-hand timer rail (SessionDashboard content). */

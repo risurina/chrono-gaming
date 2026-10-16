@@ -5,7 +5,7 @@ import { getDeviceFingerprint, getDeviceInfo } from '../../lib/device';
 import { getDeviceToken } from '../../lib/storage';
 import { native } from '../../lib/native';
 import { ScreenLayout } from '../../components/ui/ScreenLayout';
-import { Button } from '@risurina/oikos/ui';
+import { Button } from '@/ui-kit';
 
 
 export function DiagnosticsScreen() {

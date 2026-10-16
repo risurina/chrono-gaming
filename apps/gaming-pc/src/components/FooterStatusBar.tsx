@@ -1,5 +1,5 @@
 import React from 'react';
-import { cn } from '@risurina/oikos/ui';
+import { cn } from '@/ui-kit';
 import { CLIENT_CONFIG } from '../config/client-config';
 
 export const FooterStatusBar: React.FC<{ className?: string }> = ({ className }) => {

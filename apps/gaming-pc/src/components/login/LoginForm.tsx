@@ -1,7 +1,7 @@
 import React from 'react';
 import { QRCodeSVG } from 'qrcode.react';
 import { Loader2, LockKeyhole, Mail, QrCode, Smartphone, User, WifiOff } from 'lucide-react';
-import { Box, Button, Flex, Input, Label, Text, cn } from '@risurina/oikos/ui';
+import { Box, Button, Flex, Input, Label, Text, cn } from '@/ui-kit';
 import { isConnectionError } from './login-defaults';
 
 type LoginMode = 'qr' | 'login';

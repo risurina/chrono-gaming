@@ -1,4 +1,4 @@
-import { cn, ui } from '@risurina/oikos/ui';
+import { cn, ui } from '@/ui-kit';
 import { StationStatus } from '../../types/pc-client';
 
 interface FullPageLayoutProps {

@@ -1,4 +1,5 @@
 import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
@@ -41,6 +42,11 @@ export default defineConfig({
   ],
   clearScreen: false,
   envPrefix: ["VITE_", "TAURI_"],
+  resolve: {
+    alias: {
+      "@": fileURLToPath(new URL("./src", import.meta.url)),
+    },
+  },
   // `@risurina/oikos/ui` is a Next.js library and pulls in `next/link`, whose
   // client code references `process.env`. The webview has no Node `process`, so
   // without this shim the bundle throws `process is not defined` → blank screen.

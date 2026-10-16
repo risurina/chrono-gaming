@@ -2,7 +2,7 @@ import {
   getLocalClientState as getPersistedState,
   getDeviceToken
 } from '../../lib/storage';
-import type { CleanupPolicy } from '@chrono/shared';
+import type { CleanupPolicy } from '@/types/shared';
 
 export interface ActiveSessionData {
   customerName: string;

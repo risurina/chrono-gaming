@@ -1,6 +1,6 @@
 import React from 'react';
 import { Gamepad2, Loader2 } from 'lucide-react';
-import { Box, Flex, Text, Button, cn } from '@risurina/oikos/ui';
+import { Box, Flex, Text, Button, cn } from '@/ui-kit';
 import type { Game } from '../../types/native';
 
 const CATEGORY_STYLES: Record<string, string> = {

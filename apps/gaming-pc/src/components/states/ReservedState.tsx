@@ -15,7 +15,7 @@ import {
   Flex,
   Heading,
   Text,
-} from "@risurina/oikos/ui";
+} from '@/ui-kit';
 import { FullPageLayout } from '../ui/FullPageLayout';
 import { runtime } from '../../features/runtime/pc-client-runtime';
 import { IdleScreenLayout } from '../ui/IdleScreenLayout';

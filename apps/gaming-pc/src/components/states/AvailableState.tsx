@@ -5,7 +5,7 @@ import { getDeviceFingerprint } from '../../lib/device';
 import { native } from '../../lib/native';
 import { useUiConfig } from '../../contexts/UiConfigContext';
 import { IdleScreenLayout } from '../ui/IdleScreenLayout';
-import { Box, Flex, Heading, Text } from '@risurina/oikos/ui';
+import { Box, Flex, Heading, Text } from '@/ui-kit';
 import { LoginForm } from '../login';
 
 type LoginMode = 'qr' | 'login';
