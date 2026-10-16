@@ -1,0 +1,76 @@
+# uninstall-service.ps1
+# Stops and removes the Chrono Station Guard (ChronoGuard) LocalSystem service,
+# cleans up the machine environment variables and secret storage it left
+# behind, and reverts kiosk policy for whichever user it was applied to.
+#
+# REQUIRES ADMINISTRATOR PRIVILEGES. Run from an elevated PowerShell prompt.
+
+#Requires -RunAsAdministrator
+
+param(
+    [string]$InstallDir = "C:\Program Files\Chrono Station Guard"
+)
+
+$ServiceName = "ChronoGuard"
+
+Write-Host "Uninstalling $ServiceName..."
+
+# --- Stop + delete the native Windows service ---
+$existing = Get-Service -Name $ServiceName -ErrorAction SilentlyContinue
+if ($existing) {
+    if ($existing.Status -ne 'Stopped') {
+        Write-Host "Stopping service $ServiceName..."
+        Stop-Service -Name $ServiceName -Force -ErrorAction SilentlyContinue
+        try {
+            (Get-Service -Name $ServiceName).WaitForStatus('Stopped', (New-TimeSpan -Seconds 15))
+        } catch {
+            Write-Warning "Timed out waiting for $ServiceName to stop; continuing with delete."
+        }
+    }
+
+    Write-Host "Removing service $ServiceName..."
+    & sc.exe delete $ServiceName | Out-Host
+    if ($LASTEXITCODE -eq 0) {
+        Write-Host "Service $ServiceName removed successfully."
+    } else {
+        Write-Warning "Failed to remove service $ServiceName. It might require a reboot to fully disappear."
+    }
+} else {
+    Write-Host "Service $ServiceName is not installed."
+}
+
+# --- Revert kiosk policy for whichever user it was applied to, before we
+#     erase the env var that remembers who that was. ---
+$kioskUsername = [Environment]::GetEnvironmentVariable("CHRONO_KIOSK_USERNAME", "Machine")
+if ($kioskUsername) {
+    Write-Host "Reverting kiosk policy for $kioskUsername..."
+    $RevertScript = Join-Path $PSScriptRoot "revert-kiosk-policy.ps1"
+    if (Test-Path $RevertScript) {
+        & powershell.exe -ExecutionPolicy Bypass -File $RevertScript -Username $kioskUsername
+    } else {
+        Write-Warning "Kiosk revert script not found at $RevertScript; skipping."
+    }
+} else {
+    Write-Host "No kiosk username recorded; skipping kiosk policy revert."
+}
+
+# --- Remove machine environment variables set by install-service.ps1 ---
+Write-Host "Removing Chrono machine environment variables..."
+foreach ($var in @(
+    "CHRONO_ENV",
+    "CHRONO_UI_EXE",
+    "CHRONO_UI_PROCESS",
+    "CHRONO_RECOVERY_PIN_HASH",
+    "CHRONO_KIOSK_USERNAME"
+)) {
+    [Environment]::SetEnvironmentVariable($var, $null, "Machine")
+}
+
+# --- Remove secret storage (control.key / seal.key / sealed station state) ---
+$SecretDir = Join-Path $env:ProgramData "Chrono"
+if (Test-Path $SecretDir) {
+    Write-Host "Removing secret storage at $SecretDir..."
+    Remove-Item -Path $SecretDir -Recurse -Force -ErrorAction SilentlyContinue
+}
+
+Write-Host "$ServiceName uninstalled."

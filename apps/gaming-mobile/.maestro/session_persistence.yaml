@@ -1,0 +1,14 @@
+appId: ph.com.izur.chrono
+---
+- launchApp
+- tapOn: "I ALREADY HAVE AN ACCOUNT"
+- tapOn: "Email"
+- inputText: "john.customer@example.com"
+- tapOn: "Password"
+- inputText: "password123"
+- hideKeyboard
+- tapOn: "Continue"
+- assertVisible: "Active Session"
+- stopApp
+- launchApp
+- assertVisible: "Active Session"

@@ -1,0 +1,10 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "Minimal Phase 1 capability for the main kiosk window, plus the recovery PIN window and in-session widget window",
+  "windows": ["main", "recovery", "widget"],
+  "permissions": [
+    "core:default",
+    "log:default"
+  ]
+}

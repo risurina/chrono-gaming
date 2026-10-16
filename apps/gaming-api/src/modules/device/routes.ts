@@ -775,7 +775,7 @@ export function deviceAuthRoutes() {
                 hostname,
               })
               .returning();
-            return { deviceToken: secret, status: created?.status, minted: true };
+            return { deviceToken: secret, deviceId: created?.id, status: created?.status, minted: true };
           }
 
           // Known fingerprint, but the credential presented was a
@@ -793,7 +793,7 @@ export function deviceAuthRoutes() {
             })
             .where(eq(chronoDevice.id, existing.id))
             .returning();
-          return { deviceToken: secret, status: updated?.status, minted: true };
+          return { deviceToken: secret, deviceId: updated?.id, status: updated?.status, minted: true };
         });
 
         return c.json(result, 201);
@@ -808,8 +808,9 @@ export function deviceAuthRoutes() {
 
       if (device.deviceFingerprint === fingerprint) {
         // Known fingerprint + known tokenHash -> idempotent re-auth. Return
-        // current status, mint nothing new.
-        return c.json({ status: device.status, minted: false });
+        // current status + the device's own id (the kiosk needs it to scope its
+        // realtime subscription), mint nothing new.
+        return c.json({ deviceId: device.id, status: device.status, minted: false });
       }
 
       // Same secret token presented from a DIFFERENT fingerprint than the

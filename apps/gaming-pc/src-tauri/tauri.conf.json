@@ -1,0 +1,62 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Chrono PC Client",
+  "version": "../package.json",
+  "identifier": "com.izur.chrono.pcclient",
+  "build": {
+    "beforeDevCommand": "pnpm dev",
+    "devUrl": "http://localhost:5174",
+    "beforeBuildCommand": "pnpm build",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "windows": [
+      {
+        "label": "main",
+        "title": "Chrono PC Client",
+        "width": 1280,
+        "height": 800,
+        "resizable": true,
+        "fullscreen": false,
+        "decorations": true
+      }
+    ],
+    "security": {
+      "csp": "default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:"
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": ["nsis"],
+    "publisher": "IZUR IT SOLUTIONS",
+    "copyright": "Copyright (c) 2026 IZUR IT SOLUTIONS",
+    "icon": ["icons/icon.ico", "icons/icon.png"],
+    "resources": {
+      "../scripts/": "scripts/",
+      "../games.json.example": "games.json.example",
+      "codesign/chrono-codesign.cer": "resources/codesign/chrono-codesign.cer"
+    },
+    "createUpdaterArtifacts": true,
+    "windows": {
+      "webviewInstallMode": {
+        "type": "downloadBootstrapper"
+      },
+      "signCommand": "powershell.exe -ExecutionPolicy Bypass -File ../scripts/sign-installer.ps1 %1",
+      "nsis": {
+        "installMode": "perMachine",
+        "installerHooks": "nsis/hooks.nsi",
+        "installerIcon": "icons/icon.ico"
+      }
+    }
+  },
+  "plugins": {
+    "updater": {
+      "active": true,
+      "endpoints": [
+        "https://chrono.api.izur.com.ph/api/v1/device/updates/{{target}}/{{arch}}/{{current_version}}"
+      ],
+      "dialog": false,
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDhGRUM3NjY4MDhDNTVCNwpSV1MzVll5QVpzZitDTjQzU3lkbVRNZjVyMmdkL0Y3UHgwZ3RFaVJjdkd0WTJmYm9xQVh4WWR4MQo="
+    }
+  }
+}

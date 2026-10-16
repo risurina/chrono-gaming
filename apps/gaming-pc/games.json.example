@@ -1,0 +1,66 @@
+[
+  {
+    "id": "valorant",
+    "name": "Valorant",
+    "category": "FPS",
+    "exePath": "C:\\Riot Games\\VALORANT\\live\\VALORANT.exe",
+    "args": [],
+    "iconUrl": null
+  },
+  {
+    "id": "cs2",
+    "name": "Counter-Strike 2",
+    "category": "FPS",
+    "exePath": "C:\\Program Files (x86)\\Steam\\steamapps\\common\\Counter-Strike Global Offensive\\game\\bin\\win64\\cs2.exe",
+    "args": [],
+    "iconUrl": null
+  },
+  {
+    "id": "dota2",
+    "name": "Dota 2",
+    "category": "MOBA",
+    "exePath": "C:\\Program Files (x86)\\Steam\\steamapps\\common\\dota 2 beta\\game\\bin\\win64\\dota2.exe",
+    "args": [],
+    "iconUrl": null
+  },
+  {
+    "id": "lol",
+    "name": "League of Legends",
+    "category": "MOBA",
+    "exePath": "C:\\Riot Games\\League of Legends\\LeagueClient.exe",
+    "args": [],
+    "iconUrl": null
+  },
+  {
+    "id": "ml",
+    "name": "Mobile Legends: Bang Bang",
+    "category": "MOBA",
+    "exePath": "C:\\Program Files\\MobileLegendsBangBang\\MobileLegendsBangBang.exe",
+    "args": [],
+    "iconUrl": null
+  },
+  {
+    "id": "pubg",
+    "name": "PUBG: Battlegrounds",
+    "category": "Battle Royale",
+    "exePath": "C:\\Program Files (x86)\\Steam\\steamapps\\common\\PUBG\\TslGame\\Binaries\\Win64\\TslGame.exe",
+    "args": [],
+    "iconUrl": null
+  },
+  {
+    "id": "genshin",
+    "name": "Genshin Impact",
+    "category": "RPG",
+    "exePath": "C:\\Program Files\\Genshin Impact\\Genshin Impact game\\GenshinImpact.exe",
+    "args": [],
+    "iconUrl": null
+  },
+  {
+    "id": "roblox",
+    "name": "Roblox",
+    "category": "Casual",
+    "exePath": "C:\\Users\\PC\\AppData\\Local\\Roblox\\Versions\\version-xxxx\\RobloxPlayerBeta.exe",
+    "args": [],
+    "iconUrl": null
+  }
+]

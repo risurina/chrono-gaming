@@ -1,0 +1,8 @@
+dist
+node_modules
+# Workspace build output (root moved up when src-tauri became a workspace member)
+target
+src-tauri/target
+src-tauri/gen/schemas
+.env
+.env.local

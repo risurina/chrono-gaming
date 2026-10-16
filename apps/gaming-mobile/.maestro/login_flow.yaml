@@ -1,0 +1,13 @@
+appId: ph.com.izur.chrono
+---
+- launchApp
+- assertVisible: "Your gaming session starts here."
+- tapOn: "I ALREADY HAVE AN ACCOUNT"
+- assertVisible: "Welcome back"
+- tapOn: "Email"
+- inputText: "john.customer@example.com"
+- tapOn: "Password"
+- inputText: "password123"
+- hideKeyboard
+- tapOn: "Continue"
+- assertVisible: "Active Session"

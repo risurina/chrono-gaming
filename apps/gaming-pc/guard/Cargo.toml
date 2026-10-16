@@ -1,0 +1,39 @@
+[package]
+name = "chrono-guard"
+version = "0.1.3"
+edition = "2021"
+description = "Chrono station guard: LocalSystem enforcer (watchdog + lock) exposing the station control channel"
+
+[[bin]]
+name = "chrono-guard"
+path = "src/main.rs"
+
+[dependencies]
+chrono-control = { path = "../crates/chrono-control" }
+axum = "0.7"
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "net", "time", "signal"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+rand = "0.8"
+log = "0.4"
+env_logger = "0.11"
+sysinfo = "0.33"
+time = { version = "0.3", features = ["parsing"] }
+
+# Native workstation lock (LockWorkStation), Windows-service SCM entry, and
+# the session-aware UI relaunch (CreateProcessAsUser into the active console
+# session, instead of spawning as SYSTEM in session 0).
+[target.'cfg(windows)'.dependencies]
+windows = { version = "0.58", features = [
+  "Win32_Foundation",
+  "Win32_System_Shutdown",
+  "Win32_System_RemoteDesktop",
+  "Win32_Security",
+  "Win32_System_Threading",
+  "Win32_System_Environment",
+] }
+windows-service = "0.7"
+
+[dev-dependencies]
+tempfile = "3"
+tower = { version = "0.5", features = ["util"] }
