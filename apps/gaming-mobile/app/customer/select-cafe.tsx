@@ -42,27 +42,28 @@ export default function SelectCafeScreen() {
   const load = useCallback(async () => {
     setError(null);
     try {
-      const [history, branchCode] = await Promise.all([
-        api.customers.getHistory(),
+      const [cafes, branchCode] = await Promise.all([
+        api.customers.getCafes(),
         tokenStorage.getBranchCode(),
       ]);
       setActiveBranchCode(branchCode);
 
-      // Group per tenant; each row is a tenant+branch the customer has visited.
-      const byTenant = new Map<string, TenantGroup>();
-      for (const row of history as CafeBranch[]) {
-        if (!row.tenantSlug || !row.branchCode) continue;
-        const group = byTenant.get(row.tenantId) ?? {
-          tenantId: row.tenantId,
-          tenantName: row.tenantName,
-          branches: [],
-        };
-        if (!group.branches.some((b) => b.branchCode === row.branchCode)) {
-          group.branches.push(row);
-        }
-        byTenant.set(row.tenantId, group);
-      }
-      setGroups([...byTenant.values()]);
+      // One group per joined tenant; each row is one of that tenant's branches.
+      const nextGroups: TenantGroup[] = (cafes as any[])
+        .filter((cafe) => cafe.tenantSlug)
+        .map((cafe) => ({
+          tenantId: cafe.tenantId,
+          tenantName: cafe.tenantName,
+          branches: (cafe.branches ?? []).map((b: any) => ({
+            tenantId: cafe.tenantId,
+            tenantSlug: cafe.tenantSlug,
+            tenantName: cafe.tenantName,
+            branchId: b.branchId,
+            branchCode: b.branchCode,
+            branchName: b.branchName,
+          })),
+        }));
+      setGroups(nextGroups);
     } catch (e: any) {
       logger.error('Failed to load cafes:', e);
       setError(e?.message || 'Failed to load your cafes.');

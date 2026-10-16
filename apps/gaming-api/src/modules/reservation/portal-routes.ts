@@ -1,7 +1,8 @@
 import { Hono } from "hono";
-import { withTenant, eq, and, isNull, sql, desc } from "agora/db";
+import { withTenant, eq, and, isNull, sql, desc, count } from "agora/db";
 import { type MemberVars, memberMiddleware } from "agora/member-auth";
 import { HttpError, zValidator, clientIp } from "agora/server";
+import { buildPaginationMeta } from "agora";
 import { recordAudit } from "agora/audit";
 import { requireAppliedMembership } from "../member/access";
 import { chronoStation } from "../station/schema";
@@ -12,6 +13,8 @@ import {
   joinQueueSchema,
   cancelReservationSchema,
   reservationAvailabilityQuerySchema,
+  portalReservationListQuerySchema,
+  toPortalReservationSummary,
   type ReservationAvailabilityResponse,
 } from "./contracts";
 import {
@@ -144,6 +147,59 @@ export function reservationPortalRoutes() {
         return c.json(result);
       },
     )
+
+    // The member's own reservation history — newest-first, paginated. A sibling
+    // of `GET /portal/sessions` (session/portal-routes.ts). Registered as a
+    // LITERAL path before any `/:id` route so it is never swallowed by a param
+    // match. Scoped to the member's own rows (`eq(memberId)`) inside
+    // `withTenant` — RLS handles the cross-tenant half, the explicit memberId
+    // filter the cross-member half — and returned as an allowlist DTO, never a
+    // raw row.
+    .get("/history", zValidator("query", portalReservationListQuerySchema), async (c) => {
+      const { tenantId, memberId } = c.var.member;
+      const { page, pageSize } = c.req.valid("query");
+
+      const { rows, totalItems } = await withTenant(tenantId, async (tx) => {
+        const [total] = await tx
+          .select({ value: count() })
+          .from(chronoReservation)
+          .where(
+            and(
+              eq(chronoReservation.tenantId, tenantId),
+              eq(chronoReservation.memberId, memberId),
+            ),
+          );
+        const rows = await tx
+          .select({
+            id: chronoReservation.id,
+            stationId: chronoReservation.stationId,
+            branchId: chronoReservation.branchId,
+            status: chronoReservation.status,
+            startAt: chronoReservation.startAt,
+            endAt: chronoReservation.endAt,
+            requestedDurationMinutes: chronoReservation.requestedDurationMinutes,
+            fromQueue: chronoReservation.fromQueue,
+            cancelledLateFeeAmount: chronoReservation.cancelledLateFeeAmount,
+            createdAt: chronoReservation.createdAt,
+          })
+          .from(chronoReservation)
+          .where(
+            and(
+              eq(chronoReservation.tenantId, tenantId),
+              eq(chronoReservation.memberId, memberId),
+            ),
+          )
+          .orderBy(desc(chronoReservation.createdAt))
+          .limit(pageSize)
+          .offset((page - 1) * pageSize);
+        return { rows, totalItems: total?.value ?? 0 };
+      });
+
+      return c.json({
+        items: rows.map(toPortalReservationSummary),
+        meta: buildPaginationMeta(page, pageSize, totalItems, "createdAt", "desc"),
+      });
+    })
 
     // Flow 1 — direct reservation.
     .post("/", zValidator("json", createDirectReservationSchema), async (c) => {

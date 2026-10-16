@@ -75,11 +75,8 @@ export default function ReservationsScreen() {
           try {
             const result = await api.reservations.cancel(reservation.id);
             let message = 'Your reservation has been cancelled.';
-            if (result?.cancelFeeCharged && result?.cancelFee) {
-              message += ` A fee of ${result.cancelFee} was charged.`;
-            }
-            if (result?.penaltyApplied && result?.banUntil) {
-              message += ` You are restricted from reserving until ${new Date(result.banUntil).toLocaleString()}.`;
+            if (result?.isLate && result?.feeAmount) {
+              message += ` A late-cancellation fee of ${result.feeAmount} was charged.`;
             }
             Alert.alert('Reservation Cancelled', message);
             await load();

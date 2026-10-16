@@ -2,76 +2,113 @@ import { mobileApiFetch } from './mobile-api-client';
 import { tokenStorage } from './token-storage';
 
 /**
- * Chrono member (customer) API surface. Endpoints match the live chrono-api:
- * - `/member/*`         — user-scoped member portal (profile, sessions, reservations)
- * - `/tenant/wallet/*`  — member wallet (tenant resolved via x-oikos-hostname)
- * - `/tenant/{branchCode}/sessions/active` — active session for the current branch
- * - `/public/tenants/{slug}/station-availability` — live station view (no auth)
+ * gaming-api customer surface. All reads/writes target the agora foundation
+ * contract:
+ * - `/auth/customer/*`   — global-customer identity (cookie session)
+ * - `/portal/*`          — member self-service (tenant resolved via x-tenant-slug)
+ * - `/public/*`          — unauthenticated reads (stations, QR)
+ *
+ * Responses are bare JSON (no `{ success, data }` envelope); lists are
+ * `{ items, meta }` and are unwrapped to `.items` here.
  */
 export const apiService = {
   auth: {
-    // Sign-in/sign-up are handled by Better Auth directly in mobile-api-client
-    // (signInWithEmail / signUpWithEmail). `me` returns the member profile.
-    me: () => mobileApiFetch<any>('/member/profile'),
+    // Identity comes from `/auth/customer/me`; the tenant-scoped member profile
+    // (memberCode / applicationStatus / phone …) from `/portal/members/me` when a
+    // cafe is linked. Merge them, with identity fields winning so id/email/name
+    // always reflect the signed-in customer.
+    me: async () => {
+      const { customer } = await mobileApiFetch<{ customer: any }>('/auth/customer/me');
+      let profile: any = null;
+      const tenantSlug = await tokenStorage.getTenantSlug();
+      if (tenantSlug) {
+        try {
+          const res = await mobileApiFetch<{ profile: any }>('/portal/members/me');
+          profile = res.profile;
+        } catch {
+          // No membership in this tenant yet — identity alone is enough.
+        }
+      }
+      return {
+        ...(profile ?? {}),
+        id: customer.id,
+        email: customer.email,
+        name: customer.name,
+        hasPassword: customer.hasPassword,
+      };
+    },
   },
   customers: {
-    // Visited cafes (tenant + branch + slug/code) for the current user.
-    // These use strict requireAuth and are user-scoped, so we must NOT send the
-    // tenant host header (a membership-less customer would 403 once resolved).
-    getHistory: () =>
-      mobileApiFetch<{ history: any[] }>(
-        '/tenant/~/customers/history',
-        {},
-        { includeTenantHost: false },
-      ).then((r) => r.history ?? []),
-    join: (code: string) =>
-      mobileApiFetch<{
-        tenantId: string;
-        tenantSlug?: string | null;
-        tenantName?: string | null;
-        branchId: string;
-        branch: { id: string; code: string; name?: string | null } & Record<string, any>;
-      }>(
-        '/tenant/~/customers/join',
-        { method: 'POST', body: JSON.stringify({ code }) },
-        { includeTenantHost: false },
-      ),
+    // Every tenant the customer has joined, each with its branches.
+    getCafes: () =>
+      mobileApiFetch<{ cafes: any[] }>('/portal/customer/cafes').then((r) => r.cafes ?? []),
+    // Apply to a tenant by its slug: persist the slug (so x-tenant-slug resolves
+    // the tenant) then self-service apply.
+    join: async (code: string) => {
+      await tokenStorage.saveTenantSlug(code);
+      return mobileApiFetch<{
+        member: { id: string; customerId: string; email: string; name: string; status: string };
+      }>('/portal/customer/apply', { method: 'POST', body: JSON.stringify({}) });
+    },
   },
   wallet: {
     getBalance: () =>
-      mobileApiFetch<{ id: string | null; balance: string | number; currency: string; status: string }>(
-        '/tenant/wallet/balance',
+      mobileApiFetch<{ balance: string; currency: string; exists: boolean }>(
+        '/portal/wallet/balance',
       ),
-    getHistory: () => mobileApiFetch<any[]>('/tenant/wallet/history'),
+    getHistory: () =>
+      mobileApiFetch<{ items: any[]; meta: any }>('/portal/wallet/history').then(
+        (r) => r.items ?? [],
+      ),
   },
   loyalty: {
-    getBalance: () => mobileApiFetch<{ balance: number; id?: string }>('/tenant/~/loyalty/balance'),
+    getBalance: () =>
+      mobileApiFetch<{ account: any | null; level: any; memberSince: string }>('/portal/loyalty/me'),
   },
   session: {
-    getActive: async () => {
-      const branchCode = (await tokenStorage.getBranchCode()) || '~';
-      return mobileApiFetch<any>(`/tenant/${branchCode}/sessions/active`);
-    },
-    getHistory: () => mobileApiFetch<any[]>('/member/sessions'),
+    getActive: () =>
+      mobileApiFetch<{ session: any | null }>('/portal/sessions/active').then((r) => r.session),
+    getHistory: () =>
+      mobileApiFetch<{ items: any[]; meta: any }>('/portal/sessions/').then((r) => r.items ?? []),
   },
   credits: {
-    getSummary: () => mobileApiFetch<{ grants: any[] }>('/member/credit-summary'),
-    getProducts: () => mobileApiFetch<any[]>('/member/credit-products'),
+    getSummary: () =>
+      mobileApiFetch<{ grants: any[]; totalRemainingMinutes: number }>('/portal/credits/balance'),
+    getProducts: () =>
+      mobileApiFetch<{ items: any[] }>('/portal/credits/products').then((r) => r.items ?? []),
   },
   stations: {
-    availability: (tenantSlug: string) =>
-      mobileApiFetch<any>(`/public/tenants/${tenantSlug}/station-availability`),
+    // Tenant resolved via x-tenant-slug (no slug in the path).
+    availability: () => mobileApiFetch<any>('/public/stations'),
   },
   reservations: {
-    list: () => mobileApiFetch<any[]>('/member/reservations'),
-    policy: () => mobileApiFetch<any>('/member/reservations/policy'),
-    restrictions: () => mobileApiFetch<any>('/member/reservations/restrictions'),
-    create: (data: { stationId: string; durationMinutes: number }) =>
-      mobileApiFetch<any>('/member/reservations', { method: 'POST', body: JSON.stringify(data) }),
+    list: () =>
+      mobileApiFetch<{ items: any[]; meta: any }>('/portal/reservations/history').then(
+        (r) => r.items ?? [],
+      ),
+    policy: (stationId: string) =>
+      mobileApiFetch<{ policy: any }>(
+        `/portal/reservations/policy?stationId=${encodeURIComponent(stationId)}`,
+      ).then((r) => r.policy),
+    restrictions: () =>
+      mobileApiFetch<{ restrictions: any }>('/portal/reservations/restrictions').then(
+        (r) => r.restrictions,
+      ),
+    create: (data: { stationId: string; startAt: string; durationMinutes: number }) =>
+      mobileApiFetch<{ reservation: any }>('/portal/reservations', {
+        method: 'POST',
+        body: JSON.stringify(data),
+      }).then((r) => r.reservation),
     confirm: (id: string) =>
-      mobileApiFetch<any>(`/member/reservations/${id}/confirm`, { method: 'POST' }),
-    cancel: (id: string) =>
-      mobileApiFetch<any>(`/member/reservations/${id}/cancel`, { method: 'POST' }),
+      mobileApiFetch<{ reservation: any }>(`/portal/reservations/${id}/confirm`, {
+        method: 'POST',
+        body: JSON.stringify({}),
+      }).then((r) => r.reservation),
+    cancel: (id: string, reason?: string) =>
+      mobileApiFetch<{ reservation: any; isLate: boolean; feeAmount: string | null }>(
+        `/portal/reservations/${id}/cancel`,
+        { method: 'POST', body: JSON.stringify(reason ? { reason } : {}) },
+      ),
   },
 };
 

@@ -9,7 +9,6 @@ import { Colors } from '../../constants/theme';
 import { useApi } from '../../lib/ApiContext';
 import { tokenStorage } from '../../lib/token-storage';
 import { logger } from '../../lib/logger';
-import { formatCurrency } from '../../lib/format';
 import { StationAvailabilityResponse } from '../../constants/schemas/station';
 
 export default function BranchScreen() {
@@ -32,11 +31,9 @@ export default function BranchScreen() {
         return;
       }
       setHasCafe(true);
-      const availability = await api.stations.availability(slug);
-      setData(availability as StationAvailabilityResponse);
-      setBranchName(
-        (availability as StationAvailabilityResponse).stations[0]?.branchName || slug.toUpperCase(),
-      );
+      const availability = (await api.stations.availability()) as StationAvailabilityResponse;
+      setData(availability);
+      setBranchName(availability.branches[0]?.name || slug.toUpperCase());
     } catch (e: any) {
       logger.error('Failed to load branch info:', e);
       setError(e?.message || 'Failed to load branch information.');
@@ -49,9 +46,8 @@ export default function BranchScreen() {
     load();
   }, [load]);
 
-  const total = data?.stations.length ?? 0;
-  const available = data?.summary.available ?? 0;
-  const indicativeRate = data?.stations.find((s) => typeof s.hourlyRate === 'number')?.hourlyRate ?? null;
+  const total = data?.aggregate.total ?? 0;
+  const available = data?.aggregate.available ?? 0;
 
   return (
     <MobileScreen>
@@ -81,27 +77,15 @@ export default function BranchScreen() {
                     Available Stations
                   </Text>
                 </View>
-                {indicativeRate !== null && (
-                  <>
-                    <View style={[styles.divider, { backgroundColor: themeColors.border }]} />
-                    <View style={styles.stat}>
-                      <Text style={[styles.statValue, { color: themeColors.text }]}>
-                        {formatCurrency(indicativeRate)}/hr
-                      </Text>
-                      <Text style={[styles.statLabel, { color: themeColors.mutedText }]}>From</Text>
-                    </View>
-                  </>
-                )}
               </View>
             </PremiumCard>
 
             <View style={styles.section}>
               <Text style={[styles.sectionTitle, { color: themeColors.mutedText }]}>STATION STATUS</Text>
               <PremiumCard variant="secondary">
-                <StatusRow label="Available" value={data.summary.available} color={themeColors.success} />
-                <StatusRow label="In Use" value={data.summary.inUse} color={themeColors.primary} />
-                <StatusRow label="Reserved" value={data.summary.reserved} color={themeColors.accent} />
-                <StatusRow label="Offline" value={data.summary.offline ?? 0} color={themeColors.mutedText} />
+                <StatusRow label="Available" value={data.aggregate.available} color={themeColors.success} />
+                <StatusRow label="In Use" value={data.aggregate.occupied} color={themeColors.primary} />
+                <StatusRow label="Unavailable" value={data.aggregate.unavailable} color={themeColors.mutedText} />
               </PremiumCard>
             </View>
           </>

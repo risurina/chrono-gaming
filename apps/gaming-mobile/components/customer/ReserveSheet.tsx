@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity, Modal } from 'react-native';
 import { PremiumCard } from '../ui/PremiumCard';
 import { GoldButton } from '../ui/GoldButton';
 import { Colors } from '../../constants/theme';
-import { PublicStation } from '../../constants/schemas/station';
+import { PublicStation, stationLabel } from '../../constants/schemas/station';
 import { RESERVATION_DURATION_OPTIONS } from '../../constants/schemas/reservation';
 
 interface ReserveSheetProps {
@@ -31,7 +31,7 @@ export const ReserveSheet: React.FC<ReserveSheetProps> = ({
       <View style={styles.backdrop}>
         <PremiumCard variant="gold-border" style={styles.sheet}>
           <Text style={[styles.title, { color: themeColors.text }]}>
-            Reserve Station #{station.stationCode}
+            Reserve Station {stationLabel(station)}
           </Text>
           <Text style={[styles.subtitle, { color: themeColors.mutedText }]}>
             Choose how long you want to book this station.

@@ -1,56 +1,62 @@
 import { logger } from '../lib/logger';
 import * as SecureStore from 'expo-secure-store';
 
-const TOKEN_KEY = 'auth_token';
+const SESSION_COOKIE_KEY = 'session_cookie';
 const TENANT_ID_KEY = 'tenant_id';
 const TENANT_SLUG_KEY = 'tenant_slug';
 const BRANCH_ID_KEY = 'branch_id';
 const BRANCH_CODE_KEY = 'branch_code';
 
 /**
- * Utility for managing authentication tokens securely on the device.
+ * Utility for managing the gaming-api session securely on the device.
  * Uses iOS Keychain and Android SharedPreferences (Hardware encrypted).
+ *
+ * gaming-api authenticates the global customer with a cookie session
+ * (`agora_customer`); the `*Token` methods store that cookie's `name=value`
+ * pair, which `mobile-api-client` replays as a `Cookie` header. The method
+ * names are kept (callers already use them) even though the payload is now a
+ * cookie, not a bearer token.
  */
 export const tokenStorage = {
   /**
-   * Save the auth token to secure storage.
+   * Save the session cookie to secure storage.
    *
    * Re-throws on failure: a swallowed write leaves the caller (e.g. login)
-   * navigating as if authenticated while the token is absent, producing an
+   * navigating as if authenticated while the cookie is absent, producing an
    * unexplained 401 on the next request. Callers must handle the rejection.
    */
-  async saveToken(token: string) {
+  async saveToken(cookie: string) {
     try {
-      await SecureStore.setItemAsync(TOKEN_KEY, token);
+      await SecureStore.setItemAsync(SESSION_COOKIE_KEY, cookie);
     } catch (error) {
-      logger.error('Error saving token to SecureStore:', error);
+      logger.error('Error saving session cookie to SecureStore:', error);
       throw error;
     }
   },
 
   /**
-   * Retrieve the auth token from secure storage.
+   * Retrieve the session cookie from secure storage.
    */
   async getToken(): Promise<string | null> {
     try {
-      return await SecureStore.getItemAsync(TOKEN_KEY);
+      return await SecureStore.getItemAsync(SESSION_COOKIE_KEY);
     } catch (error) {
-      logger.error('Error retrieving token from SecureStore:', error);
+      logger.error('Error retrieving session cookie from SecureStore:', error);
       return null;
     }
   },
 
   /**
-   * Remove the auth token from secure storage (e.g., on logout).
+   * Remove the session cookie from secure storage (e.g., on logout).
    *
-   * Re-throws on failure so logout does not report success while the token
+   * Re-throws on failure so logout does not report success while the cookie
    * survives on the device.
    */
   async deleteToken() {
     try {
-      await SecureStore.deleteItemAsync(TOKEN_KEY);
+      await SecureStore.deleteItemAsync(SESSION_COOKIE_KEY);
     } catch (error) {
-      logger.error('Error deleting token from SecureStore:', error);
+      logger.error('Error deleting session cookie from SecureStore:', error);
       throw error;
     }
   },
@@ -90,8 +96,8 @@ export const tokenStorage = {
   },
 
   /**
-   * Save the tenant slug to secure storage. Used to derive the tenant hostname
-   * (`x-oikos-hostname`) so the API resolves the correct tenant context.
+   * Save the tenant slug to secure storage. Sent as the `x-tenant-slug` header
+   * so gaming-api resolves the correct tenant context for member/portal routes.
    */
   async saveTenantSlug(tenantSlug: string) {
     try {
@@ -179,7 +185,7 @@ export const tokenStorage = {
   async clearAll() {
     try {
       await Promise.all([
-        SecureStore.deleteItemAsync(TOKEN_KEY),
+        SecureStore.deleteItemAsync(SESSION_COOKIE_KEY),
         SecureStore.deleteItemAsync(TENANT_ID_KEY),
         SecureStore.deleteItemAsync(TENANT_SLUG_KEY),
         SecureStore.deleteItemAsync(BRANCH_ID_KEY),

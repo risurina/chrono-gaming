@@ -11,33 +11,34 @@ export interface ActiveSession {
 }
 
 /**
- * Raw active session as returned by the Chrono API
- * (`GET /tenant/{branchCode}/sessions/active`).
+ * Raw active session as returned by gaming-api
+ * (`GET /portal/sessions/active` → `{ session }`). Status is `active | paused`.
  */
 export interface RawActiveSession {
   id: string;
   stationId: string;
   stationName: string;
+  status: 'active' | 'paused';
   startedAt: string;
   scheduledEndAt: string | null;
-  status: string;
-  mode: string;
 }
 
 /**
- * Raw member session-history row (`GET /member/sessions`).
+ * Raw member session-summary row (`GET /portal/sessions/` → `{ items }`), via
+ * gaming-api's `toPortalSessionSummary`. Money is a decimal string; timestamps
+ * are ISO strings.
  */
 export interface RawMemberSession {
   id: string;
-  stationId: string | null;
-  stationName: string | null;
-  status: string;
-  mode: string;
+  stationId: string;
+  stationName: string;
+  status: 'active' | 'paused' | 'ended';
   startedAt: string;
   scheduledEndAt: string | null;
   endedAt: string | null;
-  actualDurationSeconds: number | null;
-  createdAt: string;
+  actualBillableSeconds: number | null;
+  amountCharged: string | null;
+  currency: string;
 }
 
 const WARNING_THRESHOLD_SECONDS = 5 * 60;
@@ -45,6 +46,9 @@ const WARNING_THRESHOLD_SECONDS = 5 * 60;
 /**
  * Normalize a raw active session into the shape UI components expect,
  * deriving the remaining time from `scheduledEndAt`.
+ *
+ * Status map: `active` → active, `paused` → warning, and any session already
+ * past its `scheduledEndAt` → expired.
  */
 export function normalizeActiveSession(
   raw: RawActiveSession,
@@ -55,6 +59,7 @@ export function normalizeActiveSession(
 
   let status: SessionStatus = 'active';
   if (end && remaining <= 0) status = 'expired';
+  else if (raw.status === 'paused') status = 'warning';
   else if (end && remaining <= WARNING_THRESHOLD_SECONDS) status = 'warning';
 
   return {

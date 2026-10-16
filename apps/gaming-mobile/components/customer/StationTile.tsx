@@ -3,12 +3,12 @@ import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { PremiumCard } from '../ui/PremiumCard';
 import { Colors } from '../../constants/theme';
-import { formatCurrency } from '../../lib/format';
 import {
   PublicStation,
   STATION_STATUS_LABELS,
   StationStatus,
   isStationReservable,
+  stationLabel,
 } from '../../constants/schemas/station';
 
 interface StationTileProps {
@@ -18,10 +18,8 @@ interface StationTileProps {
 
 const STATUS_COLOR: Record<StationStatus, keyof typeof Colors.dark> = {
   available: 'success',
-  inUse: 'primary',
-  reserved: 'accent',
+  occupied: 'primary',
   maintenance: 'mutedText',
-  locked: 'danger',
   offline: 'mutedText',
 };
 
@@ -33,19 +31,14 @@ export const StationTile: React.FC<StationTileProps> = ({ station, onReserve }) 
   return (
     <PremiumCard variant="default" style={styles.container}>
       <View style={styles.header}>
-        <Text style={[styles.code, { color: themeColors.text }]}>#{station.stationCode}</Text>
+        <Text style={[styles.code, { color: themeColors.text }]}>{stationLabel(station)}</Text>
         <View style={[styles.statusDot, { backgroundColor: color }]} />
       </View>
 
-      <Text style={[styles.status, { color }]}>
-        {STATION_STATUS_LABELS[station.status]}
-        {station.queueLength ? ` · ${station.queueLength} in queue` : ''}
-      </Text>
+      <Text style={[styles.status, { color }]}>{STATION_STATUS_LABELS[station.status]}</Text>
 
-      {typeof station.hourlyRate === 'number' && (
-        <Text style={[styles.rate, { color: themeColors.mutedText }]}>
-          {formatCurrency(station.hourlyRate)}/hr
-        </Text>
+      {!!station.stationType && (
+        <Text style={[styles.type, { color: themeColors.mutedText }]}>{station.stationType}</Text>
       )}
 
       {reservable && onReserve && (
@@ -86,7 +79,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '700',
   },
-  rate: {
+  type: {
     fontSize: 12,
   },
   reserveBtn: {

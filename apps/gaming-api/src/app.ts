@@ -65,6 +65,7 @@ import { companyInquiryPublicRoutes } from "./modules/company-inquiry/public-rou
 import { businessLeadPublicRoutes } from "./modules/business-lead/routes";
 import { publicStationRoutes } from "./modules/station/routes";
 import { stationMembershipStatusRoutes } from "./modules/station/customer-portal-routes";
+import { customerCafesRoutes } from "./modules/branch/customer-portal-routes";
 import { publicVenueInfoRoutes } from "./modules/branch/routes";
 import { getPublicLandingPageContent } from "./modules/landing-page/routes";
 import { readPublishedLandingPage } from "agora/server/routes";
@@ -546,6 +547,12 @@ export const app = baseApp
   // gated by customerAuthMiddleware() inside stationMembershipStatusRoutes()
   // itself, mirroring how /portal/customer is mounted directly above.
   .route("/portal/customer/venues", stationMembershipStatusRoutes())
+  // Chrono: "My Cafés" — every tenant a signed-in global customer has joined,
+  // each with that tenant's own active branches. A sibling of
+  // /portal/customer/venues above (same membership-tenant spine, same
+  // withAdmin + explicit-tenantId isolation); gated by customerAuthMiddleware()
+  // inside customerCafesRoutes() itself.
+  .route("/portal/customer/cafes", customerCafesRoutes())
   // Chrono: customer-facing venue-membership self-service (apply / view own
   // status) — gated by memberMiddleware() inside memberPortalRoutes()
   // itself, mirroring how /portal/auth is mounted directly above.

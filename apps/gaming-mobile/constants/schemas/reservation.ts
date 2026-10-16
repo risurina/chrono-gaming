@@ -1,26 +1,35 @@
+/**
+ * gaming-api reservation status vocabulary (lowercase) — see
+ * `reservation/contracts.ts`'s `reservationStatusSchema`.
+ */
 export type ReservationStatus =
-  | 'PENDING'
-  | 'CONFIRMED'
-  | 'CHECKED_IN'
-  | 'CANCELLED'
-  | 'EXPIRED'
-  | 'FULFILLED';
+  | 'confirmed'
+  | 'checked_in'
+  | 'completed'
+  | 'cancelled'
+  | 'no_show'
+  | 'pending'
+  | 'hold'
+  | 'cancelled_late'
+  | 'queue_expired';
 
+/**
+ * Member reservation summary as returned by gaming-api
+ * (`GET /portal/reservations/history` → `{ items }`), via
+ * `toPortalReservationSummary`. Dates are ISO strings; `cancelledLateFeeAmount`
+ * is a decimal string.
+ */
 export interface MemberReservation {
   id: string;
-  branchId: string | null;
   stationId: string;
+  branchId: string;
   status: ReservationStatus;
-  startTime: string | null;
-  endTime: string | null;
-  durationMinutes: number;
+  startAt: string | null;
+  endAt: string | null;
+  requestedDurationMinutes: number | null;
   fromQueue: boolean;
-  availableAt: string | null;
-  graceExpiresAt: string | null;
-  stationName: string | null;
-  stationNumber: string | null;
+  cancelledLateFeeAmount: string | null;
   createdAt: string;
-  queuePosition: number | null;
 }
 
 export interface ReservationAvailability {
@@ -36,16 +45,22 @@ export interface ReservationPolicy {
   availability?: ReservationAvailability;
 }
 
-export interface ReservationRestrictions {
-  reservationBan: { reason: string; expiresAt: string | null } | null;
-  queueBan: { reason: string; expiresAt: string | null } | null;
+export interface ReservationRestriction {
+  type: 'reservation_ban' | 'queue_ban' | 'queue_failure';
+  reason: string;
+  expiresAt: string | null;
 }
 
 /** Preset booking durations (minutes) offered in the reserve sheet. */
 export const RESERVATION_DURATION_OPTIONS = [30, 60, 120] as const;
 
-const ACTIVE_STATUSES: ReservationStatus[] = ['PENDING', 'CONFIRMED', 'CHECKED_IN'];
+const ACTIVE_STATUSES: ReservationStatus[] = ['pending', 'hold', 'confirmed', 'checked_in'];
 
 export function isReservationActive(r: MemberReservation): boolean {
   return ACTIVE_STATUSES.includes(r.status);
+}
+
+/** A hold is a live, station-locking claim window the member must confirm. */
+export function isReservationHold(r: MemberReservation): boolean {
+  return r.status === 'hold';
 }

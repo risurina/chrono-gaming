@@ -26,12 +26,16 @@ export default function LoginScreen() {
 
     setLoading(true);
     try {
-      const { token } = await signInWithEmail(email, password);
+      const { cookie } = await signInWithEmail(email, password);
 
       // A swallowed save used to let us navigate as if signed in and then 401
       // on the next request; saveToken now throws, so treat it as a hard stop.
+      if (!cookie) {
+        Alert.alert('Login Failed', 'Sign-in did not return a session. Please try again.');
+        return;
+      }
       try {
-        await tokenStorage.saveToken(token);
+        await tokenStorage.saveToken(cookie);
       } catch {
         Alert.alert(
           'Login Failed',
@@ -40,7 +44,7 @@ export default function LoginScreen() {
         return;
       }
 
-      // Resolve the member's active tenant/branch from their visited cafes so
+      // Resolve the member's active tenant/branch from their joined cafes so
       // tenant-scoped member routes work immediately after login. Distinguish a
       // real lookup failure from "no cafe joined yet" so we don't silently hide
       // a connectivity/server problem behind a "No Linked Cafe" state.
