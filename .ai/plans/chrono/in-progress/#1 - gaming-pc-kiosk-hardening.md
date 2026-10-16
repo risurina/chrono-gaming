@@ -5,10 +5,19 @@
 - Audit: _(unclaimed)_
 - Implementation: Claude Code (main session, worktree `worktree-gaming-pc-hardening`)
 
-**Status:** IN PROGRESS — accepted. Phase 1 underway.
-- Phase 1 (quick wins): env-var lockdown bypass fixed (machine-only `kiosk_env`); SCM
-  `sdset`/`failureflag` + PIN salt/relocation + HKLM policies + `/ping` cap pending.
-- Correction: the recovery-PIN code is `src-tauri/src/recovery.rs` (not `guard/src/recovery.rs`).
+**Status:** IN PROGRESS — accepted. Phases 1 & 2 DONE (committed on `worktree-gaming-pc-hardening`).
+- **Phase 1 DONE:** env-var lockdown bypass removed (machine-only `kiosk_env`, `0b559cb`);
+  guard SCM `sdset`+`failureflag` (`df7f6bf`); non-revertible kiosk policies HKLM + user-hive
+  ACL lock (`2e775b0`); recovery PIN verified in the guard via salted PBKDF2 in the ACL'd
+  store, env var removed (`a684f0e`). The interim `/ping` cap is folded into Phase 3.
+- **Phase 2 DONE:** guard monotonic clock-tamper backstop — SAFE_LOCK on a backward
+  wall-clock jump; forward jumps ignored (`427710b`, 38 guard tests pass).
+- **Phase 3 NEXT:** server-authoritative guard (the keystone) — guard validates session via
+  `GET /api/v1/device/session/active`; `/ping` becomes liveness-only.
+- **Follow-ups:** `revert-kiosk-policy.ps1` + `verify-install.ps1` parity for the new
+  HKLM/ACL policies + `recovery.hash`; all Windows-runtime behavior validated in Phase 5.
+- Correction: the recovery-PIN UI code is `src-tauri/src/recovery.rs`; PIN verification now
+  lives in `guard/src/recovery.rs` (new).
 
 ## What this is
 
