@@ -46,6 +46,32 @@ if (-not (Test-Path $UiExe)) {
     exit 1
 }
 
+# --- Require the kiosk account to have a password (fail-fast) ---
+# LockWorkStation is dismissible on a password-less / autologin-no-password
+# account, which silently defeats station lockdown (see
+# guard/src/enforcement.rs:150-155). If the operator passes -KioskUsername we
+# refuse to install against an account with no password. Domain accounts may not
+# resolve via Get-LocalUser; in that case we warn and let the install proceed
+# (the operator is responsible for the password). The hard-fail Write-Error is
+# kept OUTSIDE the try/catch on purpose: with $ErrorActionPreference='Stop' a
+# Write-Error inside the catch would be swallowed, so we only capture the lookup
+# in try/catch and evaluate the result afterwards. (hardening plan #1, Phase 4.)
+if ($KioskUsername -ne "") {
+    $kioskUser = $null
+    try {
+        $kioskUser = Get-LocalUser -Name $KioskUsername -ErrorAction Stop
+    } catch {
+        Write-Warning "Could not resolve kiosk account '$KioskUsername' via Get-LocalUser (a domain account won't resolve here): $_. Skipping the local password check - ensure this account has a password set manually."
+    }
+    if ($null -ne $kioskUser) {
+        if (($null -eq $kioskUser.PasswordLastSet) -or (-not $kioskUser.PasswordRequired)) {
+            Write-Error "Kiosk account '$KioskUsername' has no password (PasswordLastSet is empty or PasswordRequired is false). LockWorkStation is dismissible on a password-less/autologin account, which defeats station lockdown. Set a password on the kiosk account (e.g. 'net user $KioskUsername *') and re-run this installer."
+            exit 1
+        }
+        Write-Host "Kiosk account '$KioskUsername' password check passed (password set and required)."
+    }
+}
+
 # --- Idempotent teardown: stop + delete any existing service ---
 $existing = Get-Service -Name $ServiceName -ErrorAction SilentlyContinue
 if ($existing) {
@@ -103,6 +129,24 @@ $HardenedSddl = "D:(A;;CCDCLCSWRPWPDTLOCRSDRCWDWO;;;SY)(A;;CCDCLCSWRPWPDTLOCRSDR
 & sc.exe sdset $ServiceName $HardenedSddl | Out-Host
 if ($LASTEXITCODE -ne 0) {
     Write-Warning "sc sdset failed (exit $LASTEXITCODE); the service keeps SCM default ACLs. Review manually."
+}
+
+# --- Register the guard to start in Safe Mode (Minimal + Network) ---
+# A Safe-Mode boot otherwise loads only a minimal service set, which a customer
+# could use to bypass enforcement by rebooting into Safe Mode. Registering the
+# service under SafeBoot\{Minimal,Network} makes Windows start ChronoGuard there
+# too. The (Default) value "Service" tells Safe Mode to load it by service name
+# (use "Driver" only for drivers). Idempotent: Test-Path guards New-Item and
+# Set-ItemProperty overwrites cleanly on re-run. (hardening plan #1, Phase 4.)
+Write-Host "Registering $ServiceName to start in Safe Mode (Minimal + Network)..."
+foreach ($safeBootKey in @(
+    "HKLM:\SYSTEM\CurrentControlSet\Control\SafeBoot\Minimal\$ServiceName",
+    "HKLM:\SYSTEM\CurrentControlSet\Control\SafeBoot\Network\$ServiceName"
+)) {
+    if (-not (Test-Path $safeBootKey)) {
+        New-Item -Path $safeBootKey -Force | Out-Null
+    }
+    Set-ItemProperty -Path $safeBootKey -Name "(Default)" -Value "Service" -Type String
 }
 
 # --- Machine environment the service needs ---

@@ -39,6 +39,20 @@ if ($existing) {
     Write-Host "Service $ServiceName is not installed."
 }
 
+# --- Remove the Safe-Mode service registrations ---
+# install-service.ps1 registers the guard under SafeBoot\{Minimal,Network} so it
+# still runs after a Safe-Mode boot; strip those so uninstall fully reverts.
+# (hardening plan #1, Phase 4/5.)
+Write-Host "Removing Safe-Mode registrations for $ServiceName..."
+foreach ($safeBootKey in @(
+    "HKLM:\SYSTEM\CurrentControlSet\Control\SafeBoot\Minimal\$ServiceName",
+    "HKLM:\SYSTEM\CurrentControlSet\Control\SafeBoot\Network\$ServiceName"
+)) {
+    if (Test-Path $safeBootKey) {
+        Remove-Item -Path $safeBootKey -Recurse -Force -ErrorAction SilentlyContinue
+    }
+}
+
 # --- Revert kiosk policy for whichever user it was applied to, before we
 #     erase the env var that remembers who that was. ---
 $kioskUsername = [Environment]::GetEnvironmentVariable("CHRONO_KIOSK_USERNAME", "Machine")

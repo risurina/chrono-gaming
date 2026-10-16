@@ -15,6 +15,32 @@ compiled `chrono-guard` binary is the sole enforcer going forward.
 - Reads its secrets from `%ProgramData%\Chrono`:
   - `control.key` — HMAC key for the local control channel.
   - `seal.key` — station seal secret.
+  - `recovery.hash` — salted PBKDF2 record of the operator recovery PIN.
+
+## Trust model
+
+The guard is the trust boundary, not the desktop UI. It does **not** trust the UI
+for whether the station is unlocked:
+
+- **Server-authoritative.** The guard reads the device bearer token from the ACL'd
+  store and polls the server (`GET /api/v1/device/session/active`) for the
+  authoritative session + `scheduledEndAt`. The control-channel `/ping` is
+  **liveness-only**: it updates the last-seen timestamp and ignores any
+  client-supplied end-time, so a leaked `control.key` cannot buy session time.
+- **PIN in the guard.** The operator recovery PIN is verified here (salted PBKDF2
+  against `recovery.hash`), never by the non-admin UI.
+- **Monotonic clock backstop.** Remaining time is anchored to a monotonic clock; a
+  backward wall-clock jump SAFE_LOCKs instead of extending a session.
+- **Fail-closed.** Boots `LOCKED`, re-asserts `LockWorkStation` every tick in any
+  non-session state, and locks when the server reports no active session or the
+  last server-validated window ends while offline.
+
+The service- and OS-level hardening that protects the guard itself (non-stoppable
+service via `sc sdset`/`failureflag`, Safe-Mode registration, ACL-locked secret
+store, standard-user-with-password kiosk account, HKLM policies) is applied by the
+installer scripts and documented in
+[`../docs/deployment-hardening.md`](../docs/deployment-hardening.md) — read it
+before deploying to a real kiosk.
 
 ## Control channel
 

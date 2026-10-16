@@ -23,6 +23,31 @@ Secure workstation shell for the Chrono iCafe management system, built with
   daemons (heartbeat, process monitor, kiosk) are wired up in
   **`src-tauri/src/lib.rs`**.
 
+## Trust model (anti-tamper)
+
+The station is hardened against a tech-savvy **non-admin customer** at the PC. The
+trust boundary is the **`chrono-guard` LocalSystem service**, not the webview UI:
+
+- **Server-authoritative sessions.** The guard derives whether/until-when the
+  station is unlocked from the **server** (`GET /api/v1/device/session/active`),
+  not from the UI. The UI `/ping` is **liveness-only** — it cannot assert
+  `scheduledEndAt`/`activeSessionId`, so a forged or replayed `/ping` (even a
+  validly-signed one with a far-future end) can never buy session time.
+- **PIN verified in the guard.** The operator recovery PIN is checked inside the
+  LocalSystem guard against a salted PBKDF2 record in the ACL'd secret store — the
+  non-admin UI never sees or verifies it.
+- **Monotonic clock backstop.** The guard anchors remaining time to a monotonic
+  clock; a backward wall-clock jump SAFE_LOCKs rather than extending a session.
+- **Service + policy hardening.** The service is non-stoppable/non-deletable by
+  the customer (`sc sdset` + `failureflag`), runs in Safe Mode, and kiosk policies
+  live in admin-only HKLM plus ACL-locked user-hive keys.
+
+Several controls are **OS/deployment-level, not app code** (standard-user account
+with a password, admin-write-only install dir, elevated install, Secure Boot /
+BitLocker). The station is only tamper-resistant on a correctly-provisioned image
+— see **[`docs/deployment-hardening.md`](docs/deployment-hardening.md)** for the
+operator prerequisites and the manual Windows validation checklist.
+
 ## Prerequisites (Windows)
 
 - **Rust** (stable) via [rustup](https://rustup.rs)
