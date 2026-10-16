@@ -1,11 +1,102 @@
-@import "@risurina/oikos/ui/globals.css";
+@import "tailwindcss";
 
-@source "../../../../packages/oikos/src";
+/*
+ * Scan the agora/ui component source so Tailwind generates the utility classes
+ * those shadcn primitives (Button, Card, Input, …) reference — the module graph
+ * lives under the read-only `agora` submodule, outside this app's own src.
+ */
+@source "../../../packages/agora/packages/agora/src/presentation/ui";
 
-@font-face {
-  font-family: 'Bruno Ace SC';
-  src: url('/BrunoAceSC-Regular.ttf') format('truetype');
-  font-weight: normal;
-  font-style: normal;
+/*
+ * Design tokens (Tailwind v4 native `@theme` — each `--color-*` both sets the
+ * value and generates its `bg-/text-/border-/ring-` utilities). A single
+ * dark "premium gold" palette replaces the former `@risurina/oikos/ui/globals.css`,
+ * which is not available in this agora-based workspace. The shadcn token names
+ * (background/foreground/card/primary/…) are what agora/ui components consume;
+ * the gold/surface/danger/muted-text tokens are the client's own.
+ */
+@theme {
+  --color-background: #0a0908;
+  --color-foreground: #f4f1ea;
+
+  --color-card: #141210;
+  --color-card-foreground: #f4f1ea;
+  --color-popover: #141210;
+  --color-popover-foreground: #f4f1ea;
+
+  --color-primary: #d4af37;
+  --color-primary-foreground: #0a0908;
+  --color-secondary: #1c1a17;
+  --color-secondary-foreground: #f4f1ea;
+
+  --color-muted: #1c1a17;
+  --color-muted-foreground: #a8a29e;
+  --color-accent: #26221c;
+  --color-accent-foreground: #f4f1ea;
+
+  --color-destructive: #ef4444;
+  --color-destructive-foreground: #fafafa;
+
+  --color-border: #2a2622;
+  --color-input: #2a2622;
+  --color-ring: #d4af37;
+
+  /* Client-specific tokens */
+  --color-gold: #d4af37;
+  --color-danger: #ef4444;
+  --color-muted-text: #a8a29e;
+  --color-surface: #141210;
+  --color-surface-warm: #1c1a17;
+
+  --font-chrono: "Bruno Ace SC", ui-sans-serif, system-ui, sans-serif;
 }
 
+@font-face {
+  font-family: "Bruno Ace SC";
+  src: url("/BrunoAceSC-Regular.ttf") format("truetype");
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+
+@layer base {
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+  body {
+    background-color: var(--color-background);
+    color: var(--color-foreground);
+  }
+}
+
+@layer utilities {
+  /* Premium card surface (replaces the oikos `.premium-card`). */
+  .premium-card {
+    background-image: linear-gradient(
+      160deg,
+      rgba(28, 26, 23, 0.9) 0%,
+      rgba(10, 9, 8, 0.9) 100%
+    );
+    border: 1px solid rgba(212, 175, 55, 0.18);
+    border-radius: 1rem;
+    box-shadow: 0 20px 60px -20px rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(12px);
+  }
+
+  /* Gold gradient text (replaces the oikos `.premium-text-gradient`). */
+  .premium-text-gradient {
+    background-image: linear-gradient(90deg, #f3d57a 0%, #d4af37 50%, #b8902a 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+
+  /* Subtle dotted backdrop (oikos `ui.premiumDots`). */
+  .premium-dots {
+    background-image: radial-gradient(rgba(212, 175, 55, 0.07) 1px, transparent 1px);
+    background-size: 24px 24px;
+    background-position: -12px -12px;
+  }
+}

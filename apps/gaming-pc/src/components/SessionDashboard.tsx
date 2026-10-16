@@ -17,7 +17,7 @@ import {
   Loader2,
   Infinity as InfinityIcon,
 } from 'lucide-react';
-import { Box, Flex, Text, Button, Badge, cn, ui } from '@risurina/oikos/ui';
+import { Box, Flex, Text, Button, Badge, cn, ui } from '@/ui-kit';
 import { PanelLayout } from './ui/PanelLayout';
 import {
   formatTime,

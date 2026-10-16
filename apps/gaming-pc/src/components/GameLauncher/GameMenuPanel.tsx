@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Gamepad2, Search } from 'lucide-react';
-import { Box, Flex, Text, Input, cn } from '@risurina/oikos/ui';
+import { Box, Flex, Text, Input, cn } from '@/ui-kit';
 import { PcClientApi } from '../../features/api/pc-client-api';
 import { GameCard } from './GameCard';
 import type { Game } from '../../types/native';

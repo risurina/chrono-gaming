@@ -17,7 +17,7 @@ import { PendingApprovalState } from './components/states/PendingApprovalState';
 import { LoadingState } from './components/states/LoadingState';
 import { SystemUpdateState } from './components/states/SystemUpdateState';
 import { ReservedState } from './components/states/ReservedState';
-import { ThemeProvider } from '@risurina/oikos/ui';
+import { ThemeProvider } from '@/ui-kit';
 import { runtime, RuntimeStatus } from './features/runtime/pc-client-runtime';
 import { LocalClientState } from './features/local-state/local-client-state';
 import { CLIENT_CONFIG } from './config/client-config';

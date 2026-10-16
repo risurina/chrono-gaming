@@ -1,4 +1,4 @@
-import type { CleanupPolicy } from '@chrono/shared';
+import type { CleanupPolicy } from '@/types/shared';
 
 /**
  * Request/response DTOs for the native command layer (`lib/native.ts`).

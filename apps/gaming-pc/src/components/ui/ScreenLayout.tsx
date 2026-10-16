@@ -1,5 +1,5 @@
 import React from 'react';
-import { cn, ui } from '@risurina/oikos/ui';
+import { cn, ui } from '@/ui-kit';
 import { StationHeader } from '../StationHeader';
 import { FooterStatusBar } from '../FooterStatusBar';
 import { StationStatus } from '../../types/pc-client';

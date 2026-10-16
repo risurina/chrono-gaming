@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { invoke } from '@tauri-apps/api/core';
-import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter, Label, Input, Button } from '@risurina/oikos/ui';
+import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter, Label, Input, Button } from '@/ui-kit';
 
 /**
  * Operator recovery PIN entry (window mode `recovery`). Submits the PIN to the

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { runtime } from '../../features/runtime/pc-client-runtime';
 import { ScreenLayout } from '../ui/ScreenLayout';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle, Input, Button, cn } from '@risurina/oikos/ui';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle, Input, Button, cn } from '@/ui-kit';
 
 export const UnpairedState: React.FC = () => {
   const [pairingCode, setPairingCode] = useState('');

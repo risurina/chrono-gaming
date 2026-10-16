@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Flame, Gamepad2, MapPin, Megaphone, MonitorCheck } from 'lucide-react';
-import { Box, Flex, Text, cn, ui } from '@risurina/oikos/ui';
+import { Box, Flex, Text, cn, ui } from '@/ui-kit';
 import { formatStationLabel, formatStationStatus, LoginSlide, loginSlides, tenantLoginDefaults } from '../login/login-defaults';
 import { SessionViewModel } from '../../types/pc-client';
 import { FooterStatusBar } from '../FooterStatusBar';

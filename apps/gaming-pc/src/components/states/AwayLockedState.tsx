@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Lock, Unlock, User as UserIcon } from 'lucide-react';
 import { SessionViewModel } from '../../types/pc-client';
-import { Button, Input } from '@risurina/oikos/ui';
+import { Button, Input } from '@/ui-kit';
 import { BrandMark } from '../BrandMark';
 import { PcClientApi } from '../../features/api/pc-client-api';
 
