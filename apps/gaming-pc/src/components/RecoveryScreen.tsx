@@ -4,8 +4,9 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter, 
 
 /**
  * Operator recovery PIN entry (window mode `recovery`). Submits the PIN to the
- * Rust core, which verifies it against CHRONO_RECOVERY_PIN_HASH and, on success,
- * reverts kiosk policies and enters maintenance.
+ * Rust core, which forwards it to the LocalSystem guard for verification (salted
+ * PBKDF2 against the ACL'd recovery.hash). On a valid PIN the Rust side reverts
+ * kiosk policies and enters maintenance.
  */
 export function RecoveryScreen() {
   const [pin, setPin] = useState('');

@@ -55,6 +55,9 @@ if ($kioskUsername) {
 }
 
 # --- Remove machine environment variables set by install-service.ps1 ---
+# CHRONO_RECOVERY_PIN_HASH is no longer written (the recovery PIN now lives as a
+# salted record in recovery.hash, removed with the secret dir below) but stays in
+# this list to clean it up on machines upgraded from a pre-Phase-1b install.
 Write-Host "Removing Chrono machine environment variables..."
 foreach ($var in @(
     "CHRONO_ENV",
@@ -66,7 +69,8 @@ foreach ($var in @(
     [Environment]::SetEnvironmentVariable($var, $null, "Machine")
 }
 
-# --- Remove secret storage (control.key / seal.key / sealed station state) ---
+# --- Remove secret storage (control.key / seal.key / recovery.hash / sealed
+#     station state) ---
 $SecretDir = Join-Path $env:ProgramData "Chrono"
 if (Test-Path $SecretDir) {
     Write-Host "Removing secret storage at $SecretDir..."

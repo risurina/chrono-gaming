@@ -63,6 +63,7 @@ pub fn router(state: AppState) -> Router {
         .route("/health", get(health))
         .route("/status", get(status))
         .route("/ping", post(ping))
+        .route("/recovery/verify", post(recovery_verify))
         .route("/audit", post(audit))
         .layer(middleware::from_fn(move |req: Request, next: Next| {
             let st = auth_state.clone();
@@ -191,6 +192,26 @@ async fn ping(State(st): State<AppState>, Json(body): Json<PingBody>) -> Respons
     Json(json!({ "success": true, "state": snapshot })).into_response()
 }
 
+#[derive(Deserialize)]
+struct RecoveryVerifyBody {
+    #[serde(default)]
+    pin: String,
+}
+
+/// Verify an operator recovery PIN against the salted PBKDF2 record in the ACL'd
+/// secret store. The guard owns verification so the PIN hash is never readable
+/// by the non-admin UI; the UI still drives the policy-revert + maintenance
+/// transition on a `valid: true` answer. The entered PIN is never logged.
+async fn recovery_verify(Json(body): Json<RecoveryVerifyBody>) -> Response {
+    let valid = crate::recovery::verify_configured_pin(&body.pin);
+    if valid {
+        log::info!("[Security] Operator recovery PIN accepted");
+    } else {
+        log::warn!("[Security] Operator recovery PIN rejected");
+    }
+    Json(json!({ "success": true, "valid": valid })).into_response()
+}
+
 async fn audit(Json(body): Json<serde_json::Value>) -> Response {
     let kind = body.get("type").and_then(|v| v.as_str()).unwrap_or("unknown");
     log::info!("audit event from UI: {kind}");
@@ -301,6 +322,57 @@ mod tests {
         assert_eq!(first.status(), StatusCode::OK);
         let second = app.oneshot(build()).await.unwrap();
         assert_eq!(second.status(), StatusCode::UNAUTHORIZED);
+    }
+
+    #[tokio::test]
+    async fn recovery_verify_returns_valid_for_correct_pin_and_false_otherwise() {
+        // Point the secret dir at a unique temp dir and write a known record.
+        // (This is the only guard test that touches CHRONO_CONTROL_DIR.)
+        let n = NONCE_SEQ.fetch_add(1, Ordering::Relaxed);
+        let dir = std::env::temp_dir().join(format!("chrono-rec-test-{}-{}", now_ms(), n));
+        std::env::set_var("CHRONO_CONTROL_DIR", &dir);
+        let path = chrono_control::recovery_hash_path();
+        std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+        std::fs::write(&path, crate::recovery::hash_pin("87654321")).unwrap();
+
+        let app = router(test_state());
+
+        let good = json!({ "pin": "87654321" }).to_string();
+        let resp = app
+            .clone()
+            .oneshot(signed_request("POST", "/recovery/verify", &good))
+            .await
+            .unwrap();
+        assert_eq!(resp.status(), StatusCode::OK);
+        let bytes = to_bytes(resp.into_body(), MAX_BODY_BYTES).await.unwrap();
+        let body: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
+        assert_eq!(body["valid"], json!(true));
+
+        let bad = json!({ "pin": "00000000" }).to_string();
+        let resp = app
+            .oneshot(signed_request("POST", "/recovery/verify", &bad))
+            .await
+            .unwrap();
+        assert_eq!(resp.status(), StatusCode::OK);
+        let bytes = to_bytes(resp.into_body(), MAX_BODY_BYTES).await.unwrap();
+        let body: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
+        assert_eq!(body["valid"], json!(false));
+
+        std::env::remove_var("CHRONO_CONTROL_DIR");
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[tokio::test]
+    async fn recovery_verify_rejects_unsigned_request() {
+        let app = router(test_state());
+        let req = Request::builder()
+            .method("POST")
+            .uri("/recovery/verify")
+            .header("content-type", "application/json")
+            .body(Body::from(json!({ "pin": "87654321" }).to_string()))
+            .unwrap();
+        let resp = app.oneshot(req).await.unwrap();
+        assert_eq!(resp.status(), StatusCode::UNAUTHORIZED);
     }
 
     #[tokio::test]

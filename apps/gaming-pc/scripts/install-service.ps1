@@ -9,6 +9,10 @@
 param(
     [string]$InstallDir = "C:\Program Files\Chrono Station Guard",
     [string]$KioskUsername = "",
+    # Plaintext operator recovery PIN (>= 8 chars). Derived to a salted PBKDF2
+    # record at install time (never stored in plaintext). Prefer this.
+    [string]$RecoveryPin = "",
+    # Advanced: a pre-derived "salt$iterations$hash" record, written as-is.
     [string]$RecoveryPinHash = "",
     [string]$CodeSignCertPath = ""
 )
@@ -166,11 +170,32 @@ if ($KioskUsername -ne "") {
 }
 
 # --- Optional: recovery PIN hash ---
-# Persisted as a machine env var so the LocalSystem guard can read it without a
-# world-readable file on disk.
-if ($RecoveryPinHash -ne "") {
-    Write-Host "Storing recovery PIN hash..."
-    [Environment]::SetEnvironmentVariable("CHRONO_RECOVERY_PIN_HASH", $RecoveryPinHash, "Machine")
+# The operator recovery PIN is verified by the LocalSystem guard, never by the
+# non-admin UI. Its salted PBKDF2 record is written to recovery.hash inside the
+# ACL'd secret dir (SYSTEM + Administrators only), so the customer can neither
+# read it nor brute-force a short PIN. No plaintext PIN is ever persisted, and
+# no world-readable machine env var is used (that was the pre-Phase-1b weakness).
+$RecoveryHashFile = Join-Path $SecretDir "recovery.hash"
+if ($RecoveryPin -ne "") {
+    if ($RecoveryPin.Length -lt 8) {
+        Write-Error "RecoveryPin must be at least 8 characters."
+        exit 1
+    }
+    Write-Host "Deriving salted recovery PIN record via guard..."
+    # Derive through the guard binary (stdin, not argv) so the stored record and
+    # the guard's runtime verification use the identical KDF. The PIN never
+    # touches disk or the process command line.
+    $RecoveryRecord = ($RecoveryPin | & $GuardExe hash-pin)
+    if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($RecoveryRecord)) {
+        Write-Error "Failed to derive recovery PIN record (guard exit $LASTEXITCODE)."
+        exit 1
+    }
+    [System.IO.File]::WriteAllText($RecoveryHashFile, $RecoveryRecord.Trim())
+    Write-Host "Stored recovery PIN record at $RecoveryHashFile."
+} elseif ($RecoveryPinHash -ne "") {
+    # Advanced: caller supplied a pre-derived "salt$iterations$hash" record.
+    Write-Host "Storing supplied recovery PIN record at $RecoveryHashFile..."
+    [System.IO.File]::WriteAllText($RecoveryHashFile, $RecoveryPinHash.Trim())
 }
 
 # --- Start the service ---

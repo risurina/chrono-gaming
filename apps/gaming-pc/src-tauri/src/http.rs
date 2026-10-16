@@ -347,6 +347,34 @@ impl HttpGateway {
         }
     }
 
+    /// Send a bare POST with an exact pre-serialized JSON body (signed over
+    /// byte-for-byte, like [`post_ok`]) and return the parsed JSON response on a
+    /// success status. `None` on a network error, non-success status, or
+    /// non-JSON body. Used by the guard-backed recovery-PIN check, which needs
+    /// the `{ valid }` field rather than just the status.
+    pub async fn post_json(
+        &self,
+        url: &str,
+        body: String,
+        extra_headers: &[(&str, String)],
+    ) -> Option<Value> {
+        let mut headers = HeaderMap::new();
+        headers.insert(CONTENT_TYPE, HeaderValue::from_static("application/json"));
+        for (k, v) in extra_headers {
+            if let (Ok(name), Ok(val)) =
+                (HeaderName::from_bytes(k.as_bytes()), HeaderValue::from_str(v))
+            {
+                headers.insert(name, val);
+            }
+        }
+        let resp = self.client.post(url).headers(headers).body(body).send().await.ok()?;
+        if !resp.status().is_success() {
+            return None;
+        }
+        let text = resp.text().await.ok()?;
+        serde_json::from_str(&text).ok()
+    }
+
     /// Send a bare GET with the given headers, returning whether the response
     /// status was success. Used for the watchdog `/health` probe.
     pub async fn get_ok(&self, url: &str, extra_headers: &[(&str, String)]) -> bool {

@@ -11,8 +11,8 @@ pub mod state;
 
 pub use canonical::{sign_request, verify_request, SignedHeaders};
 pub use secret::{
-    control_key_path, protect, read_control_key, read_secret, service_url, unprotect,
-    write_secret, DEFAULT_SERVICE_URL,
+    control_key_path, protect, read_control_key, read_secret, recovery_hash_path, service_url,
+    unprotect, write_secret, DEFAULT_SERVICE_URL,
 };
 pub use state::{
     load_sealed_json, save_sealed_json, seal_key_path, station_state_path, Loaded,

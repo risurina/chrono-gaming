@@ -19,6 +19,12 @@ log = "0.4"
 env_logger = "0.11"
 sysinfo = "0.33"
 time = { version = "0.3", features = ["parsing"] }
+# Operator-recovery-PIN KDF: salted, slow PBKDF2-HMAC-SHA256 with constant-time
+# compare. digest/hmac/sha2 versions line up with the rest of the workspace.
+pbkdf2 = "0.12"
+sha2 = "0.10"
+subtle = "2"
+hex = "0.4"
 
 # Native workstation lock (LockWorkStation), Windows-service SCM entry, and
 # the session-aware UI relaunch (CreateProcessAsUser into the active console
