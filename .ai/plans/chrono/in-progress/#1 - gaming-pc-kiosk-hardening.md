@@ -5,17 +5,43 @@
 - Audit: _(unclaimed)_
 - Implementation: Claude Code (main session, worktree `worktree-gaming-pc-hardening`)
 
-**Status:** IN PROGRESS — accepted. Phases 1 & 2 DONE (committed on `worktree-gaming-pc-hardening`).
-- **Phase 1 DONE:** env-var lockdown bypass removed (machine-only `kiosk_env`, `0b559cb`);
+**Status:** IN PROGRESS — all 5 phases IMPLEMENTED + committed on `worktree-gaming-pc-hardening`
+(code-verified). **Stays in-progress (NOT archived) until the manual Windows-image validation**
+per `.ai/rules/feature-planning.md` "Plan Closure" — no control here has been exercised on a
+live kiosk yet.
+
+- **Phase 1 DONE:** env-var lockdown bypass removed — machine-only `kiosk_env` (`0b559cb`);
   guard SCM `sdset`+`failureflag` (`df7f6bf`); non-revertible kiosk policies HKLM + user-hive
-  ACL lock (`2e775b0`); recovery PIN verified in the guard via salted PBKDF2 in the ACL'd
-  store, env var removed (`a684f0e`). The interim `/ping` cap is folded into Phase 3.
-- **Phase 2 DONE:** guard monotonic clock-tamper backstop — SAFE_LOCK on a backward
-  wall-clock jump; forward jumps ignored (`427710b`, 38 guard tests pass).
-- **Phase 3 NEXT:** server-authoritative guard (the keystone) — guard validates session via
-  `GET /api/v1/device/session/active`; `/ping` becomes liveness-only.
-- **Follow-ups:** `revert-kiosk-policy.ps1` + `verify-install.ps1` parity for the new
-  HKLM/ACL policies + `recovery.hash`; all Windows-runtime behavior validated in Phase 5.
+  ACL lock (`2e775b0`); recovery PIN verified in the guard via salted PBKDF2 (600k) in the
+  ACL'd store, world-readable env var removed (`a684f0e`). Interim `/ping` cap folded into P3.
+- **Phase 2 DONE:** guard monotonic clock-tamper backstop — SAFE_LOCK on a backward wall-clock
+  jump; forward jumps ignored (`427710b`).
+- **Phase 3 DONE (keystone):** server-authoritative guard — new `session_sync` polls
+  `GET /api/v1/device/session/active` (bearer + fingerprint, reqwest) and is the authority on
+  unlock/expiry; `/ping` stripped to liveness-only (a signed `/ping` can no longer unlock —
+  test-proven); fail-closed on server error; UI hands credentials to the guard over the signed
+  control channel (`b9d3234`).
+- **Phase 4 DONE:** Safe-Mode service registration; installer fail-fast if the kiosk account
+  has no password; `docs/deployment-hardening.md` (operator prerequisites + manual validation
+  checklist) (`99fbf60`).
+- **Phase 5 DONE (code):** `revert-kiosk-policy.ps1` unlocks the ACL + removes HKLM baseline;
+  `verify-install.ps1` checks SDDL/failureflag/Safe-Mode/recovery.hash; `uninstall-service.ps1`
+  removes Safe-Mode keys; README + guard/README trust-model sections (`99fbf60`).
+
+**Verification done:** `cargo check --workspace` clean; `cargo test -p chrono-guard` 51 passed
+(incl. forged-`/ping`-can't-unlock, clock backstop, PIN KDF, session_sync mapping). No `.ts/.tsx`
+changed in any phase, so no TS regression. Full rebuild/`pnpm` deliberately skipped — disk was
+at 100%.
+
+**Deliberate scope decision:** device-token storage left user-scope (machine-scope DPAPI gives
+no protection vs the logged-in customer); real fix = guard-owned token in the ACL'd store
+(follow-up). Today the server's `x-device-fingerprint` binding already rejects cross-machine
+token replay. Documented in `docs/deployment-hardening.md`.
+
+**Before closure (Phase 5 manual, needs a real Windows kiosk image + free disk):** run the
+`docs/deployment-hardening.md` checklist end-to-end; `pnpm --filter @chrono/pc-client-tauri
+typecheck`/`build` once the `agora` submodule is checked out with disk headroom.
+
 - Correction: the recovery-PIN UI code is `src-tauri/src/recovery.rs`; PIN verification now
   lives in `guard/src/recovery.rs` (new).
 
