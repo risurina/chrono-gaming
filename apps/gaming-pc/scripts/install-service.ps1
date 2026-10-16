@@ -81,6 +81,26 @@ if ($LASTEXITCODE -ne 0) {
 # Restart the guard automatically on crash (60s delay, reset counter daily).
 & sc.exe failure $ServiceName reset= 86400 actions= restart/60000/restart/60000/restart/60000 | Out-Host
 
+# Fire the recovery actions on ANY stop, not only a non-zero crash exit — so a
+# `sc stop` / `net stop` / `taskkill` that manages to stop the service still
+# triggers an automatic restart (hardening plan #1, Phase 1).
+& sc.exe failureflag $ServiceName 1 | Out-Host
+
+# Harden the service security descriptor: SYSTEM + Administrators get full
+# control; Interactive users and Service-logon users get query/enumerate/
+# interrogate only — explicitly NO SERVICE_START / SERVICE_STOP / DELETE. This
+# is what stops a standard (customer) account from `sc stop ChronoGuard` /
+# `net stop` / `sc delete`, independent of the SCM defaults. SDDL access letters:
+# CC=query-config LC=query-status SW=enum-dependents RP=start WP=stop
+# DT=pause/continue LO=interrogate CR=user-defined DC=delete-child RC=read-control
+# SD=delete WD=write-dac WO=write-owner. IU/SU masks omit RP/WP/DC/SD = no
+# start/stop/delete. (DICL audit ACE logs failed stop attempts.)
+$HardenedSddl = "D:(A;;CCDCLCSWRPWPDTLOCRSDRCWDWO;;;SY)(A;;CCDCLCSWRPWPDTLOCRSDRCWDWO;;;BA)(A;;CCLCSWLOCRRC;;;IU)(A;;CCLCSWLOCRRC;;;SU)S:(AU;FA;WPDT;;;WD)"
+& sc.exe sdset $ServiceName $HardenedSddl | Out-Host
+if ($LASTEXITCODE -ne 0) {
+    Write-Warning "sc sdset failed (exit $LASTEXITCODE); the service keeps SCM default ACLs. Review manually."
+}
+
 # --- Machine environment the service needs ---
 Write-Host "Setting machine environment variables..."
 [Environment]::SetEnvironmentVariable("CHRONO_ENV", "production", "Machine")
